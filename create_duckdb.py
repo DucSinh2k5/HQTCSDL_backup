@@ -14,7 +14,7 @@ SELECT
     CAST(listed_date AS DATE) AS listed_date
 FROM read_csv_auto('{CSV_PATH}', header = true);
 """)
-#xoa bang cu neu da ton tai
+
 con.execute(f"""
 CREATE OR REPLACE TABLE stock_prices AS
 SELECT
