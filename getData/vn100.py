@@ -13,7 +13,7 @@ HEADERS = {
     "Origin": "https://iboard.ssi.com.vn",
 }
 
-DATA_DIR = "data_crawl_112026"
+DATA_DIR = "getData/data_crawl_112026"
 
 def main():
     
