@@ -7,32 +7,60 @@ import os
 import time
 import ast
 import random
+import re
 import pandas as pd
 
 # API mới của vnstock
 from vnstock.api.quote import Quote
+from vnstock.core.exceptions import RateLimitError
+from tenacity import RetryError
 
 # =========================
 # CONFIG
 # =========================
 
-DATA_DIR = "./getData/data/data_clean"
+DATA_DIR = r"F:\Documents\CODE\Python\cv_project\stock\HQTCSDL_stocks\getData\data\data_clean"
 os.makedirs(DATA_DIR, exist_ok=True)
 
 OUTPUT_FILE = os.path.join(
     DATA_DIR,
-    "Data_500_stocks_2015-2026.csv"
+    "Data_500_stocks_2026.csv"
 )
 
-SYMBOL_FILE = "./getData/symbol500.txt"
+SYMBOL_FILE = r"F:\Documents\CODE\Python\cv_project\stock\HQTCSDL_stocks\getData\symbol500.txt"
 
 SOURCE = "KBS"
 
-START_DATE = "2015-01-01"
-END_DATE = "2026-04-30"
+START_DATE = "2026-05-04"
+END_DATE = "2026-05-04"
+
+FAST_MODE = True
+REQUESTS_PER_MINUTE = 20
+MIN_REQUEST_INTERVAL = 60.0 / REQUESTS_PER_MINUTE
 
 BATCH_SIZE = 10
 SLEEP_TIME = 90
+REQUEST_DELAY_RANGE = (2, 5)
+RATE_LIMIT_SLEEP = 60
+MAX_RATE_LIMIT_RETRIES = 3
+
+
+def _parse_retry_after(message: str, default: int = RATE_LIMIT_SLEEP) -> int:
+    match = re.search(r"(\d+)\s*seconds", message)
+    if match:
+        return max(1, int(match.group(1)))
+    match = re.search(r"Chờ\s*(\d+)", message)
+    if match:
+        return max(1, int(match.group(1)))
+    return max(1, default)
+
+
+def _throttle(last_time: float, min_interval: float) -> float:
+    now = time.monotonic()
+    sleep_for = min_interval - (now - last_time)
+    if sleep_for > 0:
+        time.sleep(sleep_for)
+    return time.monotonic()
 
 # =========================
 # Đọc danh sách mã
@@ -53,6 +81,11 @@ with open(SYMBOL_FILE, "r", encoding="utf-8") as f:
 all_symbols = all_symbols[:500]
 print(f"Tổng số mã: {len(all_symbols)}")
 
+if FAST_MODE:
+    BATCH_SIZE = len(all_symbols)
+    SLEEP_TIME = 0
+    REQUEST_DELAY_RANGE = (0.0, 0.0)
+
 # =========================
 # Chia batch
 # =========================
@@ -72,6 +105,7 @@ if os.path.exists(OUTPUT_FILE):
 # =========================
 # CRAWL
 # =========================
+last_request_time = 0.0
 for batch_index, batch in enumerate(batches, start=1):
     print("\n" + "=" * 50)
     print(f"Batch {batch_index}/{len(batches)}")
@@ -79,38 +113,102 @@ for batch_index, batch in enumerate(batches, start=1):
 
     batch_df_list = []
     for symbol in batch:
-        try:
-            print(f"\nĐang lấy: {symbol}")
+        print(f"\nĐang lấy: {symbol}")
 
-            # =========================
-            # API mới
-            # =========================
-            q = Quote(
-                symbol=symbol,
-                source=SOURCE
-            )
+        rate_limit_attempts = 0
+        df_history = None
+        status_printed = False
 
-            df_history = q.history(
-                start=START_DATE,
-                end=END_DATE
-            )
+        while True:
+            try:
+                # =========================
+                # API mới
+                # =========================
+                q = Quote(
+                    symbol=symbol,
+                    source=SOURCE
+                )
 
-            # =========================
-            # Check dữ liệu
-            # =========================
-            if df_history is None or df_history.empty:
+                last_request_time = _throttle(
+                    last_request_time,
+                    MIN_REQUEST_INTERVAL
+                )
+                df_history = q.history(
+                    start=START_DATE,
+                    end=END_DATE
+                )
+                break
+
+            except SystemExit as e:
+                msg = str(e)
+                if "Rate limit" not in msg:
+                    raise
+
+                rate_limit_attempts += 1
+                if rate_limit_attempts > MAX_RATE_LIMIT_RETRIES:
+                    print(f"Vượt quá retry rate limit: {symbol}")
+                    status_printed = True
+                    break
+
+                wait_seconds = _parse_retry_after(msg)
+                wait_seconds = max(1, wait_seconds)
+                print(f"Rate limit, sleep {wait_seconds}s...")
+                time.sleep(wait_seconds)
+
+            except RateLimitError as e:
+                rate_limit_attempts += 1
+                if rate_limit_attempts > MAX_RATE_LIMIT_RETRIES:
+                    print(f"Vượt quá retry rate limit: {symbol}")
+                    status_printed = True
+                    break
+
+                wait_seconds = RATE_LIMIT_SLEEP
+                if getattr(e, "details", None):
+                    wait_seconds = e.details.get("retry_after", RATE_LIMIT_SLEEP)
+                wait_seconds = max(1, wait_seconds)
+                print(f"Rate limit, sleep {wait_seconds}s...")
+                time.sleep(wait_seconds)
+
+            except RetryError as e:
+                last_exc = e.last_attempt.exception()
+                if last_exc and "Không tìm thấy dữ liệu" in str(last_exc):
+                    print(f"Không có dữ liệu: {symbol}")
+                    status_printed = True
+                else:
+                    print(f"Lỗi với {symbol}: {last_exc or e}")
+                    status_printed = True
+                break
+
+            except ValueError as e:
+                if "Không tìm thấy dữ liệu" in str(e):
+                    print(f"Không có dữ liệu: {symbol}")
+                    status_printed = True
+                else:
+                    print(f"Lỗi với {symbol}: {e}")
+                    status_printed = True
+                break
+
+            except Exception as e:
+                print(f"Lỗi với {symbol}: {e}")
+                status_printed = True
+                break
+
+        # =========================
+        # Check dữ liệu
+        # =========================
+        if df_history is None or df_history.empty:
+            if not status_printed:
                 print(f"Không có dữ liệu: {symbol}")
-                continue
+            time.sleep(random.uniform(*REQUEST_DELAY_RANGE))
+            continue
 
-            # thêm mã cổ phiếu
-            df_history["symbol"] = symbol
-            batch_df_list.append(df_history)
-            print(f"Hoàn tất: {symbol}")
+        # thêm mã cổ phiếu
+        df_history["symbol"] = symbol
+        batch_df_list.append(df_history)
+        print(f"Hoàn tất: {symbol}")
 
-            # sleep nhỏ giữa từng request
-            time.sleep(random.uniform(2, 5))
-        except Exception as e:
-            print(f"Lỗi với {symbol}: {e}")
+        # sleep nhỏ giữa từng request
+        time.sleep(random.uniform(*REQUEST_DELAY_RANGE))
 
     # =========================
     # GHI FILE THEO BATCH
@@ -144,9 +242,9 @@ for batch_index, batch in enumerate(batches, start=1):
     # =========================
     # Sleep giữa batch
     # =========================
-    if batch_index < len(batches):
+    if batch_index < len(batches) and SLEEP_TIME > 0:
         random_sleep = random.randint(
-            SLEEP_TIME - 10,
+            max(0, SLEEP_TIME - 10),
             SLEEP_TIME + 20
         )
 
