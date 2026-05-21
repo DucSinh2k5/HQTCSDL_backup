@@ -5,8 +5,8 @@ import random
 # =========================
 # CONFIG
 # =========================
-INPUT_FILE = "./getData/data/data_clean/Data_500_stocks_2015-2026.csv"
-OUTPUT_FILE = "./getData/data/data_dirty/Data_500_stocks_dirty.csv"
+INPUT_FILE = "HQTCSDL_stocks/getData/data/data_clean/Data_500_stocks_2015-2026.csv"
+OUTPUT_FILE = "HQTCSDL_stocks/getData/data/data_dirty/Data_500_stocks_dirty.csv"
 
 DIRTY_RATIO = 0.07   # < 7%
 RANDOM_SEED = 42

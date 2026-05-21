@@ -16,7 +16,7 @@ from vnstock.api.quote import Quote
 # CONFIG
 # =========================
 
-DATA_DIR = "ML/getData/data/data_clean"
+DATA_DIR = "HQTCSDL_stocks/getData/data/data_clean"
 os.makedirs(DATA_DIR, exist_ok=True)
 
 OUTPUT_FILE = os.path.join(
@@ -25,7 +25,7 @@ OUTPUT_FILE = os.path.join(
     # "Data_500_stocks_01-17.csv"
 )
 
-SYMBOL_FILE = "ML/getData/symbol500.txt"
+SYMBOL_FILE = "HQTCSDL_stocks/getData/symbol500.txt"
 
 SOURCE = "KBS"
 

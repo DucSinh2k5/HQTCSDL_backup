@@ -8,7 +8,7 @@ from vnstock.api.company import Company
 # CONFIG
 # =========================
 
-DATA_DIR = "ML/getData/"
+DATA_DIR = "HQTCSDL_stocks/getData/"
 os.makedirs(DATA_DIR, exist_ok=True)
 
 SYMBOL_LIST_FILE = os.path.join(DATA_DIR, "symbol500.txt")
