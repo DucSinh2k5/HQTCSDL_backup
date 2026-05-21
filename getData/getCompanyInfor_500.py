@@ -8,14 +8,14 @@ from vnstock.api.company import Company
 # CONFIG
 # =========================
 
-DATA_DIR = "./getData/"
+DATA_DIR = "ML/getData/"
 os.makedirs(DATA_DIR, exist_ok=True)
 
 SYMBOL_LIST_FILE = os.path.join(DATA_DIR, "symbol500.txt")
 
 OUTPUT_FILE = os.path.join(DATA_DIR, "company_info.csv")
 
-PRIMARY_SOURCE = "VCI"
+SOURCE = "VCI"
 
 MAX_SYMBOLS = 500
 REQUEST_DELAY = 1
@@ -48,7 +48,7 @@ for index, symbol in enumerate(all_symbols, start=1):
     try:
         print(f"[{index}/{len(all_symbols)}] {symbol}")
 
-        company = Company(symbol=symbol, source=PRIMARY_SOURCE)
+        company = Company(symbol=symbol, source=SOURCE)
         overview = company.overview()
 
         if overview is None or overview.empty:
