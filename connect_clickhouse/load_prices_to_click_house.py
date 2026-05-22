@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent
-CLEAN_PRICE_CSV = BASE_DIR / "data" / "clean" / "Data_500_stocks_cleaned.csv"
+CLEAN_PRICE_CSV = BASE_DIR / "data" / "clean" / "Data_500_stocks_clean_ver2.csv"
 
 client = clickhouse_connect.get_client(
     host=os.getenv("CLICKHOUSE_HOST"),
