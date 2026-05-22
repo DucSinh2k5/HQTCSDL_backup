@@ -8,7 +8,7 @@ from model5.clickhouse_client import get_clickhouse_client
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-DEFAULT_MODEL_DIR = PROJECT_ROOT / "model"
+DEFAULT_MODEL_DIR = PROJECT_ROOT / "output_model5"
 DEFAULT_DATABASE = "stock_mart_model5_risk_prediction"
 
 
@@ -490,9 +490,10 @@ def main():
         if table_name == "risk_features":
             csv_columns = pd.read_csv(csv_path, nrows=0).columns.tolist()
             schema = build_schema_from_csv_columns(csv_columns, config)
-            client.command(
-                f"DROP TABLE IF EXISTS {full_table_name(args.database, table_name)}"
-            )
+            if not args.append:
+                client.command(
+                    f"DROP TABLE IF EXISTS {full_table_name(args.database, table_name)}"
+                )
             create_table_with_schema(
                 client,
                 args.database,

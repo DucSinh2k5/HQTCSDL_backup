@@ -8,7 +8,20 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent
-CLEAN_PRICE_CSV = BASE_DIR / "data" / "clean" / "Data_500_stocks_clean_ver2.csv"
+PROJECT_DIR = BASE_DIR.parent
+
+# Prefer ver2, fall back to cleaned if present.
+PRICE_CSV_CANDIDATES = [
+    PROJECT_DIR / "data" / "clean" / "Data_500_stocks_clean_ver2.csv",
+    PROJECT_DIR / "data" / "clean" / "Data_500_stocks_cleaned.csv",
+]
+
+CLEAN_PRICE_CSV = next((p for p in PRICE_CSV_CANDIDATES if p.exists()), None)
+if CLEAN_PRICE_CSV is None:
+    candidate_list = "\n".join(str(p) for p in PRICE_CSV_CANDIDATES)
+    raise FileNotFoundError(
+        "Could not find a clean price CSV. Tried:\n" + candidate_list
+    )
 
 client = clickhouse_connect.get_client(
     host=os.getenv("CLICKHOUSE_HOST"),
@@ -37,6 +50,9 @@ CREATE TABLE IF NOT EXISTS stock.stock_prices
 ENGINE = MergeTree
 ORDER BY (symbol, date)
 """)
+
+client.command("TRUNCATE TABLE stock.stock_prices")
+print("[clickhouse] Truncated table: stock.stock_prices")
 
 df = pd.read_csv(CLEAN_PRICE_CSV)
 

@@ -6,7 +6,8 @@ import numpy as np
 import pandas as pd
 
 
-VALID_SYMBOL_RE = re.compile(r"^[A-Z0-9]+$")
+# Require at least one letter to exclude numeric-only symbols like "123".
+VALID_SYMBOL_RE = re.compile(r"^(?=.*[A-Z])[A-Z0-9]+$")
 INPUT_PATH = Path(
     r"F:\Documents\CODE\Python\cv_project\stock\HQTCSDL_stocks\data\dirty\Data_500_stocks_dirty.csv"
 )

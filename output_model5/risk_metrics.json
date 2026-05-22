@@ -1,56 +1,37 @@
 {
-  "selected_model": "xgboost_risk_alert",
+  "selected_model": "logistic_regression_baseline",
   "threshold": 0.6,
   "train_ratio": 0.8,
   "cutoff_date": "2024-03-21",
-  "train_rows": 394415,
-  "test_rows": 110203,
+  "train_rows": 394014,
+  "test_rows": 110099,
   "train_start": "2015-12-04",
   "train_end": "2024-03-20",
   "test_start": "2024-03-21",
   "test_end": "2026-04-21",
-  "train_positive": 73899,
-  "train_negative": 320516,
-  "test_positive": 16333,
-  "test_negative": 93870,
+  "train_positive": 73704,
+  "train_negative": 320310,
+  "test_positive": 16278,
+  "test_negative": 93821,
   "models": {
     "logistic_regression_baseline": {
       "threshold": 0.6,
-      "accuracy": 0.8267379290944893,
-      "precision_high_risk": 0.3938811591974787,
-      "recall_high_risk": 0.31372068817730975,
-      "f1_high_risk": 0.34926044577738397,
+      "accuracy": 0.8252935993969064,
+      "precision_high_risk": 0.3897053338306602,
+      "recall_high_risk": 0.32092394643076544,
+      "f1_high_risk": 0.3519859852440791,
       "confusion_matrix": [
         [
-          85985,
-          7885
+          85640,
+          8181
         ],
         [
-          11209,
-          5124
+          11054,
+          5224
         ]
       ],
-      "roc_auc": 0.7312499532425675,
-      "pr_auc": 0.329827423349066
-    },
-    "xgboost_risk_alert": {
-      "threshold": 0.6,
-      "accuracy": 0.8072375525167191,
-      "precision_high_risk": 0.38157260009647853,
-      "recall_high_risk": 0.4842955978693443,
-      "f1_high_risk": 0.4268407846099884,
-      "confusion_matrix": [
-        [
-          81050,
-          12820
-        ],
-        [
-          8423,
-          7910
-        ]
-      ],
-      "roc_auc": 0.7692178089271798,
-      "pr_auc": 0.38125050440960173
+      "roc_auc": 0.7336730763949927,
+      "pr_auc": 0.328512079872199
     }
   },
   "feature_columns": [
