@@ -3,7 +3,7 @@ import os
 from vnstock import Listing
 
 
-SYMBOL_LIST_FILE = "HQTCSDL_stocks/getData/symbol5002.txt"
+SYMBOL_LIST_FILE = "HQTCSDL_stocks/ingestion/symbol5002.txt"
 # =========================
 # SEED (CỐ ĐỊNH KẾT QUẢ RANDOM)
 # =========================

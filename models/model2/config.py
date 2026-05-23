@@ -3,7 +3,6 @@ import os
 # =========================
 # CLICKHOUSE CONFIG
 # =========================
-
 CLICKHOUSE_HOST = "zmbwqe05t3.ap-southeast-1.aws.clickhouse.cloud"
 CLICKHOUSE_PORT = 8443
 CLICKHOUSE_USER = "default"
@@ -17,7 +16,6 @@ CLICKHOUSE_SECURE = True
 # =========================
 # COLUMN CONFIG
 # =========================
-
 DATE_COL = "trading_date"
 SYMBOL_COL = "symbol"
 
@@ -26,13 +24,11 @@ TARGET_COL = "future_return_5d"
 # =========================
 # TRAIN / TEST SPLIT
 # =========================
-
 TEST_START_DATE = "2024-01-01"
 
 # =========================
 # MODEL PATH
 # =========================
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 MODEL_DIR = os.path.join(BASE_DIR, "saved_models")
@@ -45,7 +41,6 @@ LIGHTGBM_MODEL_PATH = os.path.join(
 # =========================
 # FEATURE COLUMNS
 # =========================
-
 FEATURE_COLUMNS = [
     "open",
     "high",
@@ -86,7 +81,6 @@ FEATURE_COLUMNS = [
 # =========================
 # ID COLUMNS
 # =========================
-
 ID_COLUMNS = [
     DATE_COL,
     SYMBOL_COL
@@ -95,7 +89,6 @@ ID_COLUMNS = [
 # =========================
 # LIGHTGBM PARAMS
 # =========================
-
 LIGHTGBM_PARAMS = {
     "n_estimators": 500,
     "learning_rate": 0.03,
