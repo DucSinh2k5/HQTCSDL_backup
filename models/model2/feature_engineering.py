@@ -6,100 +6,85 @@ import numpy as np
 from sklearn.preprocessing import LabelEncoder
 
 from config import (
-    SYMBOL_COL,
-    SYMBOL_ENCODER_PATH,
-    LAG_DAYS,
-    LAG_SOURCE_COLUMNS,
-    FEATURE_COLUMNS
+  SYMBOL_COL,
+  SYMBOL_ENCODER_PATH,
+  LAG_DAYS,
+  LAG_SOURCE_COLUMNS,
+  FEATURE_COLUMNS
 )
 
 
 class FeatureEngineer:
+  def __init__(self):
+    self.encoder = LabelEncoder()
 
-    def __init__(self):
-        self.encoder = LabelEncoder()
+  def encode_symbol(self, df: pd.DataFrame) -> pd.DataFrame:
+    encoded = np.asarray(
+      self.encoder.fit_transform(
+          df[SYMBOL_COL].astype(str)
+      ),
+      dtype=np.int32
+    )
 
-    def encode_symbol(
-        self,
-        df: pd.DataFrame
-    ) -> pd.DataFrame:
+    df["symbol_encoded"] = encoded
 
-      encoded = np.asarray(
-          self.encoder.fit_transform(
-              df[SYMBOL_COL].astype(str)
-          ),
-          dtype=np.int32
-      )
+    os.makedirs(os.path.dirname(SYMBOL_ENCODER_PATH), exist_ok=True)
 
-      df["symbol_encoded"] = encoded
+    joblib.dump(self.encoder, SYMBOL_ENCODER_PATH)
 
-      os.makedirs(
-          os.path.dirname(SYMBOL_ENCODER_PATH),
-          exist_ok=True
-      )
+    return df
+  
+  def create_lag_features(self, df: pd.DataFrame) -> pd.DataFrame:
+    for column in LAG_SOURCE_COLUMNS:
+      for lag in LAG_DAYS:
+        lag_col = f"{column}_lag{lag}"
 
-      joblib.dump(
-          self.encoder,
-          SYMBOL_ENCODER_PATH
-      )
+        df[lag_col] = (
+          df.groupby(SYMBOL_COL)[column]
+          .shift(lag)
+          )
 
-      return df
-    
-    def create_lag_features(self, df: pd.DataFrame) -> pd.DataFrame:
+    return df
 
-        for column in LAG_SOURCE_COLUMNS:
-            for lag in LAG_DAYS:
-                lag_col = f"{column}_lag{lag}"
+  def create_interaction_features(self, df: pd.DataFrame) -> pd.DataFrame:
+    df["volume_volatility_interaction"] = (
+      df["volume_ratio_5_20"]
+      * df["volatility_5d"]
+    )
 
-                df[lag_col] = (
-                    df.groupby(SYMBOL_COL)[column]
-                    .shift(lag)
-                )
+    return df
 
-        return df
+  def run(self, df: pd.DataFrame) -> pd.DataFrame:
+    df = self.encode_symbol(df)
 
-    def create_interaction_features(self, df: pd.DataFrame) -> pd.DataFrame:
+    df = self.create_lag_features(df)
 
-        df["volume_volatility_interaction"] = (
-            df["volume_ratio_5_20"]
-            * df["volatility_5d"]
-        )
+    df = self.create_interaction_features(df)
 
-        return df
-
-    def run(self, df: pd.DataFrame) -> pd.DataFrame:
-
-        df = self.encode_symbol(df)
-
-        df = self.create_lag_features(df)
-
-        df = self.create_interaction_features(df)
-
-        return df
+    return df
 
 
 if __name__ == "__main__":
+  from load_data import StockDataLoader
 
-    from load_data import StockDataLoader
+  loader = StockDataLoader()
 
-    loader = StockDataLoader()
+  df = loader.load_data()
 
-    df = loader.load_data()
+  engineer = FeatureEngineer()
 
-    engineer = FeatureEngineer()
+  df = engineer.run(df)
 
-    df = engineer.run(df)
+  print("=" * 50)
+  print("FEATURE ENGINEERING DONE")
 
-    print("=" * 50)
-    print("FEATURE ENGINEERING DONE")
+  print("=" * 50)
+  print(df.head())
 
-    print("=" * 50)
-    print(df.head())
+  print("=" * 50)
+  print("TOTAL FEATURES:")
+  print(len(FEATURE_COLUMNS))
 
-    print("=" * 50)
-    print("TOTAL FEATURES:")
-    print(len(FEATURE_COLUMNS))
-
-    print("=" * 50)
-    print("FEATURE COLUMNS:")
-    print(FEATURE_COLUMNS)
+  print("=" * 50)
+  print("FEATURE COLUMNS:")
+  print(FEATURE_COLUMNS)

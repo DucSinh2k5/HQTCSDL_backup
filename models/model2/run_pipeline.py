@@ -5,43 +5,42 @@ from predict import StockPredictor
 
 
 def main():
+  print("=" * 70)
+  print("FUTURE RETURN 5D REGRESSION PIPELINE")
+  print("=" * 70)
 
-    print("=" * 70)
-    print("FUTURE RETURN 5D REGRESSION PIPELINE")
-    print("=" * 70)
+  # =========================
+  # WALK-FORWARD VALIDATION
+  # =========================
 
-    # =========================
-    # WALK-FORWARD VALIDATION
-    # =========================
+  validator = WalkForwardValidator()
+  validator.run()
 
-    validator = WalkForwardValidator()
-    validator.run()
+  # =========================
+  # TRAIN FINAL MODEL
+  # =========================
 
-    # =========================
-    # TRAIN FINAL MODEL
-    # =========================
+  trainer = LightGBMTrainer()
+  trainer.train()
 
-    trainer = LightGBMTrainer()
-    trainer.train()
+  # =========================
+  # EVALUATE FINAL MODEL
+  # =========================
 
-    # =========================
-    # EVALUATE FINAL MODEL
-    # =========================
+  evaluator = ModelEvaluator()
+  evaluator.evaluate()
 
-    evaluator = ModelEvaluator()
-    evaluator.evaluate()
+  # =========================
+  # PREDICT SAMPLE SYMBOL
+  # =========================
 
-    # =========================
-    # PREDICT SAMPLE SYMBOL
-    # =========================
+  predictor = StockPredictor()
+  predictor.predict_latest_by_symbol("ACB")
 
-    predictor = StockPredictor()
-    predictor.predict_latest_by_symbol("ACB")
-
-    print("=" * 70)
-    print("PIPELINE FINISHED")
-    print("=" * 70)
+  print("=" * 70)
+  print("PIPELINE FINISHED")
+  print("=" * 70)
 
 
 if __name__ == "__main__":
-    main()
+  main()
