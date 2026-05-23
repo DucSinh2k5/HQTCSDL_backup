@@ -26,7 +26,7 @@ TEST_START_DATE = "2024-01-01"
 # =========================
 # MODEL PATH
 # =========================
-BASE_DIR = os.path.dirname("HQTCSDL_stocks/models/model2")
+BASE_DIR = "HQTCSDL_stocks/models/model2"
 
 MODEL_DIR = os.path.join(BASE_DIR, "saved_models")
 
