@@ -1,3 +1,4 @@
+from cross_validation import WalkForwardValidator
 from train_lightgbm import LightGBMTrainer
 from evaluate import ModelEvaluator
 from predict import StockPredictor
@@ -5,41 +6,42 @@ from predict import StockPredictor
 
 def main():
 
-    print("=" * 60)
-    print("FUTURE RETURN PREDICTION PIPELINE")
-    print("=" * 60)
+    print("=" * 70)
+    print("FUTURE RETURN 5D REGRESSION PIPELINE")
+    print("=" * 70)
 
     # =========================
-    # TRAIN MODEL
+    # WALK-FORWARD VALIDATION
+    # =========================
+
+    validator = WalkForwardValidator()
+    validator.run()
+
+    # =========================
+    # TRAIN FINAL MODEL
     # =========================
 
     trainer = LightGBMTrainer()
-
     trainer.train()
 
     # =========================
-    # EVALUATE MODEL
+    # EVALUATE FINAL MODEL
     # =========================
 
     evaluator = ModelEvaluator()
-
     evaluator.evaluate()
 
     # =========================
-    # PREDICT SAMPLE
+    # PREDICT SAMPLE SYMBOL
     # =========================
 
     predictor = StockPredictor()
+    predictor.predict_latest_by_symbol("ACB")
 
-    predictor.predict_latest_by_symbol(
-        "ACB"
-    )
-
-    print("=" * 60)
+    print("=" * 70)
     print("PIPELINE FINISHED")
-    print("=" * 60)
+    print("=" * 70)
 
 
 if __name__ == "__main__":
-
     main()
