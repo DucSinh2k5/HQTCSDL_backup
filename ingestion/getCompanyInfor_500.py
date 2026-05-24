@@ -13,7 +13,7 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 SYMBOL_LIST_FILE = DATA_DIR / "symbol500.txt"
 
-OUTPUT_FILE = DATA_DIR / "company_info.csv"
+OUTPUT_FILE = DATA_DIR / "company_infor.csv"
 
 SOURCE = "VCI"
 
@@ -64,9 +64,14 @@ for index, symbol in enumerate(all_symbols, start=1):
             or ""
         )
 
+        sector = (
+            row0.get('sector')
+        )
+
         result.append({
             "symbol": symbol,
             "company_name": company_name,
+            'sector': sector,
             "listed_date": row0.get("listing_date", "")
         })
 

@@ -2,7 +2,7 @@ from vnstock.api.company import Company
 import pandas as pd
 # Source: VCI
 
-symbol = "ACB"
+symbol = "VE8"
 
 company = Company(
     symbol=symbol,
