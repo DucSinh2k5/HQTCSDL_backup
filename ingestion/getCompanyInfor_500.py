@@ -1,6 +1,6 @@
-import os
 import ast
 import time
+from pathlib import Path
 import pandas as pd
 from vnstock.api.company import Company
 
@@ -8,12 +8,12 @@ from vnstock.api.company import Company
 # CONFIG
 # =========================
 
-DATA_DIR = "HQTCSDL_stocks/ingestion/"
-os.makedirs(DATA_DIR, exist_ok=True)
+DATA_DIR = Path(__file__).resolve().parent
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-SYMBOL_LIST_FILE = os.path.join(DATA_DIR, "symbol500.txt")
+SYMBOL_LIST_FILE = DATA_DIR / "symbol500.txt"
 
-OUTPUT_FILE = os.path.join(DATA_DIR, "company_info.csv")
+OUTPUT_FILE = DATA_DIR / "company_info.csv"
 
 SOURCE = "VCI"
 
@@ -103,7 +103,7 @@ for index, symbol in enumerate(all_symbols, start=1):
 if result:
     df_final = pd.DataFrame(result)
 
-    if os.path.exists(OUTPUT_FILE):
+    if OUTPUT_FILE.exists():
         df_final.to_csv(OUTPUT_FILE, mode="a", header=False, index=False, encoding="utf-8-sig")
     else:
         df_final.to_csv(OUTPUT_FILE, index=False, encoding="utf-8-sig")

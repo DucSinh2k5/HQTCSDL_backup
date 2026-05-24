@@ -1,4 +1,15 @@
 venv/
-**/__pycache__/
+.venv/
+
+# Python cache and init files
+__pycache__/
 *.pyc
+__init__.py
+
+.env
 output_model5/
+models/model5/output_model5/
+*.csv
+models/model1/data/raw/features_all.csv
+data/clean/features_all.csv
+models/model1/reports/walk_forward_predictions.csv

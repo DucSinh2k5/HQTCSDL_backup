@@ -11,7 +11,11 @@ except ModuleNotFoundError:
 
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = BASE_DIR.parent
-FEATURES_CSV = PROJECT_DIR / "output_model5" / "risk_features.csv"
+OUTPUT_CSV = PROJECT_DIR / "data" / "clean" / "features_all.csv"
+SOURCE_DATABASE = "stock"
+SOURCE_TABLE = "stock_prices"
+TARGET_DATABASE = "stock"
+TARGET_TABLE = "features_all"
 
 FEATURES_ALL_COLUMNS = [
     "trading_date",
@@ -77,12 +81,24 @@ NUMERIC_COLUMNS = [
 ]
 
 
+def quote_identifier(name: str) -> str:
+    return "`" + str(name).replace("`", "``") + "`"
+
+
+def _safe_divide(numerator: pd.Series, denominator: pd.Series) -> pd.Series:
+    denominator = denominator.replace(0, np.nan)
+    result = numerator / denominator
+    return result.replace([np.inf, -np.inf], np.nan)
+
+
 def create_features_all_table(client, database: str = "stock") -> None:
-    client.command(f"CREATE DATABASE IF NOT EXISTS {database}")
-    client.command(f"DROP TABLE IF EXISTS {database}.features_all")
+    client.command(f"CREATE DATABASE IF NOT EXISTS {quote_identifier(database)}")
+    client.command(
+        f"DROP TABLE IF EXISTS {quote_identifier(database)}.{quote_identifier(TARGET_TABLE)}"
+    )
     client.command(
         f"""
-        CREATE TABLE IF NOT EXISTS {database}.features_all
+        CREATE TABLE IF NOT EXISTS {quote_identifier(database)}.{quote_identifier(TARGET_TABLE)}
         (
             trading_date Date,
             symbol String,
@@ -119,48 +135,198 @@ def create_features_all_table(client, database: str = "stock") -> None:
         ORDER BY (symbol, trading_date)
         """
     )
-    print(f"[clickhouse] Recreated table: {database}.features_all")
+    print(f"[clickhouse] Recreated table: {database}.{TARGET_TABLE}")
 
 
-def load_features_csv() -> pd.DataFrame:
-    if not FEATURES_CSV.exists():
-        raise FileNotFoundError(f"CSV not found: {FEATURES_CSV}")
+def normalize_prices(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return pd.DataFrame(
+            columns=["trading_date", "symbol", "open", "high", "low", "close", "volume"]
+        )
 
-    df = pd.read_csv(FEATURES_CSV)
-    df = df.drop(columns=["future_return_5d", "risk_drop_label"], errors="ignore")
+    normalized = df.copy()
+    normalized.columns = [str(column).strip().lower() for column in normalized.columns]
 
-    for column in FEATURES_ALL_COLUMNS:
-        if column not in df.columns:
-            df[column] = pd.NA
+    if "trading_date" not in normalized.columns and "date" in normalized.columns:
+        normalized = normalized.rename(columns={"date": "trading_date"})
 
-    df = df[FEATURES_ALL_COLUMNS].copy()
+    required_columns = {"trading_date", "symbol", "open", "high", "low", "close", "volume"}
+    missing_columns = sorted(required_columns - set(normalized.columns))
+    if missing_columns:
+        raise ValueError(f"Missing stock price columns: {missing_columns}")
 
-    df["symbol"] = df["symbol"].astype("string").str.strip().str.upper()
-    df["trading_date"] = pd.to_datetime(df["trading_date"], errors="coerce").dt.date
-    df["created_at"] = pd.to_datetime(df["created_at"], errors="coerce")
-    df["created_at"] = df["created_at"].fillna(pd.Timestamp.now().floor("s"))
+    normalized["symbol"] = normalized["symbol"].astype("string").str.strip().str.upper()
+    normalized["trading_date"] = pd.to_datetime(
+        normalized["trading_date"], errors="coerce"
+    ).dt.normalize()
 
-    for column in NUMERIC_COLUMNS:
-        df[column] = pd.to_numeric(df[column], errors="coerce")
+    for column in ["open", "high", "low", "close", "volume"]:
+        normalized[column] = pd.to_numeric(normalized[column], errors="coerce")
+
+    normalized = normalized.dropna(
+        subset=["trading_date", "symbol", "open", "high", "low", "close", "volume"]
+    )
+    normalized = normalized[normalized["symbol"] != ""]
+    normalized = normalized.drop_duplicates(
+        subset=["symbol", "trading_date"], keep="last"
+    )
+    return normalized.sort_values(["symbol", "trading_date"]).reset_index(drop=True)
+
+
+def load_stock_prices(
+    client,
+    database: str = SOURCE_DATABASE,
+    table: str = SOURCE_TABLE,
+) -> pd.DataFrame:
+    query = f"""
+        SELECT
+            date AS trading_date,
+            symbol,
+            open,
+            high,
+            low,
+            close,
+            volume
+        FROM {quote_identifier(database)}.{quote_identifier(table)}
+        ORDER BY symbol, date
+    """
+    print(f"[clickhouse] Loading prices from {database}.{table}")
+    prices = normalize_prices(client.query_df(query))
+    print(
+        "[features_all] Loaded prices "
+        f"{len(prices):,} rows, "
+        f"{prices['symbol'].nunique():,} symbols"
+    )
+    return prices
+
+
+def build_features_all(prices_df: pd.DataFrame) -> pd.DataFrame:
+    df = normalize_prices(prices_df)
+    if df.empty:
+        print("[features_all] No stock price rows available.")
+        for column in FEATURES_ALL_COLUMNS:
+            if column not in df.columns:
+                df[column] = pd.NA
+        return df[FEATURES_ALL_COLUMNS]
+
+    group = df.groupby("symbol", group_keys=False)
+
+    for window in [1, 3, 5, 10, 20]:
+        df[f"return_{window}d"] = group["close"].pct_change(window)
+
+    for window in [5, 20, 50]:
+        df[f"ma_{window}"] = group["close"].transform(
+            lambda series, w=window: series.rolling(window=w, min_periods=w).mean()
+        )
+
+    df["price_vs_ma20"] = _safe_divide(df["close"], df["ma_20"]) - 1
+    df["ma5_vs_ma20"] = _safe_divide(df["ma_5"], df["ma_20"]) - 1
+
+    df["volatility_5d"] = group["return_1d"].transform(
+        lambda series: series.rolling(window=5, min_periods=5).std()
+    )
+    df["volatility_20d"] = group["return_1d"].transform(
+        lambda series: series.rolling(window=20, min_periods=20).std()
+    )
+    df["volatility_change"] = _safe_divide(
+        df["volatility_5d"], df["volatility_20d"]
+    ) - 1
+
+    df["rolling_max_20d"] = group["close"].transform(
+        lambda series: series.rolling(window=20, min_periods=20).max()
+    )
+    df["drawdown_20d"] = _safe_divide(df["close"], df["rolling_max_20d"]) - 1
+
+    df["volume_ma_5"] = group["volume"].transform(
+        lambda series: series.rolling(window=5, min_periods=5).mean()
+    )
+    df["volume_ma_20"] = group["volume"].transform(
+        lambda series: series.rolling(window=20, min_periods=20).mean()
+    )
+    df["volume_ratio_5_20"] = _safe_divide(df["volume_ma_5"], df["volume_ma_20"])
+    df["volume_change_1d"] = group["volume"].pct_change(1)
+
+    high_low_range = df["high"] - df["low"]
+    df["daily_range"] = _safe_divide(high_low_range, df["close"])
+    df["body_ratio"] = np.where(
+        high_low_range.ne(0),
+        (df["close"] - df["open"]).abs() / high_low_range,
+        0.0,
+    )
+    df["close_position"] = np.where(
+        high_low_range.ne(0),
+        (df["close"] - df["low"]) / high_low_range,
+        0.5,
+    )
+    df["created_at"] = pd.Timestamp.now().floor("s")
 
     df = df.replace([np.inf, -np.inf], np.nan)
-    return df.where(pd.notna(df), None)
+    df = df[FEATURES_ALL_COLUMNS].copy()
+    print(f"[features_all] Built common features: {len(df):,} rows")
+    return df
+
+
+def prepare_features_all(df: pd.DataFrame) -> pd.DataFrame:
+    prepared = df.copy()
+
+    for column in FEATURES_ALL_COLUMNS:
+        if column not in prepared.columns:
+            prepared[column] = pd.NA
+
+    prepared = prepared[FEATURES_ALL_COLUMNS].copy()
+
+    prepared["symbol"] = prepared["symbol"].astype("string").str.strip().str.upper()
+    prepared["trading_date"] = pd.to_datetime(
+        prepared["trading_date"], errors="coerce"
+    ).dt.date
+    prepared["created_at"] = pd.to_datetime(prepared["created_at"], errors="coerce")
+    prepared["created_at"] = prepared["created_at"].fillna(
+        pd.Timestamp.now().floor("s")
+    )
+
+    for column in NUMERIC_COLUMNS:
+        prepared[column] = pd.to_numeric(prepared[column], errors="coerce")
+
+    prepared = prepared.replace([np.inf, -np.inf], np.nan)
+    return prepared.where(pd.notna(prepared), None)
+
+
+def export_features_all_to_csv(
+    client,
+    output_path: Path = OUTPUT_CSV,
+    database: str = TARGET_DATABASE,
+    table: str = TARGET_TABLE,
+) -> Path:
+    columns_sql = ",\n            ".join(FEATURES_ALL_COLUMNS)
+    query = f"""
+        SELECT
+            {columns_sql}
+        FROM {quote_identifier(database)}.{quote_identifier(table)}
+        ORDER BY symbol, trading_date
+    """
+
+    df = client.query_df(query)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    df.to_csv(output_path, index=False)
+    print(f"[clickhouse] Exported {len(df):,} rows to {output_path}")
+    return output_path
 
 
 def main() -> None:
     client = get_clickhouse_client()
     if client is None:
-        print("[clickhouse] Could not create ClickHouse client. Upload stopped.")
+        print("[clickhouse] Could not create ClickHouse client. Upload/export stopped.")
         return
 
-    create_features_all_table(client, database="stock")
-    df = load_features_csv()
+    prices_df = load_stock_prices(client)
+    features_df = build_features_all(prices_df)
+    df = prepare_features_all(features_df)
 
-    client.insert_df(
-        table="stock.features_all",
-        df=df,
-    )
-    print(f"Uploaded {len(df):,} rows to stock.features_all")
+    create_features_all_table(client, database=TARGET_DATABASE)
+    client.insert_df(table=f"{TARGET_DATABASE}.{TARGET_TABLE}", df=df)
+    print(f"Uploaded {len(df):,} rows to {TARGET_DATABASE}.{TARGET_TABLE}")
+
+    export_features_all_to_csv(client)
 
 
 if __name__ == "__main__":

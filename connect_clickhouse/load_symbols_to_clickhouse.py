@@ -7,7 +7,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-CSV_PATH = Path(r"F:\Documents\CODE\Python\cv_project\stock\HQTCSDL_stocks_1\data\company_info.csv")
+PROJECT_DIR = Path(__file__).resolve().parent.parent
+CSV_PATH = PROJECT_DIR / "data" / "clean" / "company_info.csv"
 
 client = clickhouse_connect.get_client(
     host=os.getenv("CLICKHOUSE_HOST"),

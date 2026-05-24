@@ -3,10 +3,10 @@
 # Sleep = 90s
 # Source = KBS/VCI
 
-import os
 import time
 import ast
 import random
+from pathlib import Path
 import pandas as pd
 
 # API mới của vnstock
@@ -16,16 +16,17 @@ from vnstock.api.quote import Quote
 # CONFIG
 # =========================
 
-DATA_DIR = "HQTCSDL_stocks/ingestion/data/data_clean"
-os.makedirs(DATA_DIR, exist_ok=True)
+BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = BASE_DIR / "data" / "data_clean"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-OUTPUT_FILE = os.path.join(
-    DATA_DIR,
-    "Data_500_stocks_2015-2026.csv"
+OUTPUT_FILE = (
+    DATA_DIR
+    / "Data_500_stocks_2015-2026.csv"
     # "Data_500_stocks_01-17.csv"
 )
 
-SYMBOL_FILE = "HQTCSDL_stocks/ingestion/symbol500.txt"
+SYMBOL_FILE = BASE_DIR / "symbol500.txt"
 
 SOURCE = "KBS"
 
@@ -69,8 +70,8 @@ print(f"Tổng batch: {len(batches)}")
 # =========================
 # XÓA FILE CŨ NẾU TỒN TẠI
 # =========================
-if os.path.exists(OUTPUT_FILE):
-    os.remove(OUTPUT_FILE)
+if OUTPUT_FILE.exists():
+    OUTPUT_FILE.unlink()
 
 # =========================
 # CRAWL

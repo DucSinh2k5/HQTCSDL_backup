@@ -1,12 +1,14 @@
 import pandas as pd
 import numpy as np
 import random
+from pathlib import Path
 
 # =========================
 # CONFIG
 # =========================
-INPUT_FILE = "HQTCSDL_stocks/ingestion/data/data_clean/Data_500_stocks_2015-2026.csv"
-OUTPUT_FILE = "HQTCSDL_stocks/ingestion/data/data_dirty/Data_500_stocks_dirty.csv"
+BASE_DIR = Path(__file__).resolve().parent
+INPUT_FILE = BASE_DIR / "data" / "data_clean" / "Data_500_stocks_2015-2026.csv"
+OUTPUT_FILE = BASE_DIR / "data" / "data_dirty" / "Data_500_stocks_dirty.csv"
 
 DIRTY_RATIO = 0.07   # < 7%
 RANDOM_SEED = 42
@@ -77,6 +79,7 @@ df.loc[negative_idx, "open"] *= -1
 # =========================
 # SAVE
 # =========================
+OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
 df.to_csv(OUTPUT_FILE, index=False)
 
 print(f"\nDirty dataset saved to: {OUTPUT_FILE}")

@@ -1,6 +1,6 @@
 import requests
 import csv
-import os
+from pathlib import Path
 from datetime import datetime
 
 #File này sẽ lấy dữ liệu data thực ở trên web có url dưới đây mà không lấy qua thư viện
@@ -13,11 +13,11 @@ HEADERS = {
     "Origin": "https://iboard.ssi.com.vn",
 }
 
-DATA_DIR = "HQTCSDL_stocks/ingestion/data_crawl_112026"
+DATA_DIR = Path(__file__).resolve().parent / "data_crawl_2026"
 
 def main():
     
-    os.makedirs(DATA_DIR, exist_ok=True)
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
 
     r = requests.get(URL, headers=HEADERS)
     r.raise_for_status()
@@ -35,8 +35,8 @@ def main():
         if not symbol:
             continue
 
-        file_path = os.path.join(DATA_DIR, f"{symbol}.csv")
-        file_exists = os.path.isfile(file_path) #Trả về True nếu file đã tồn tại, dùng để ghi dòng tiêu đề
+        file_path = DATA_DIR / f"{symbol}.csv"
+        file_exists = file_path.is_file() #Trả về True nếu file đã tồn tại, dùng để ghi dòng tiêu đề
 
         row = {
             "date": today,

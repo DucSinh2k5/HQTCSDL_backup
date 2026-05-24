@@ -1,9 +1,9 @@
 import random
-import os
+from pathlib import Path
 from vnstock import Listing
 
 
-SYMBOL_LIST_FILE = "HQTCSDL_stocks/ingestion/symbol5002.txt"
+SYMBOL_LIST_FILE = Path(__file__).resolve().parent / "symbol500.txt"
 # =========================
 # SEED (CỐ ĐỊNH KẾT QUẢ RANDOM)
 # =========================
@@ -33,12 +33,12 @@ random_codes.sort(reverse=reverse_sort)
 # =========================
 # TẠO THƯ MỤC NẾU CHƯA CÓ
 # =========================
-os.makedirs(os.path.dirname(SYMBOL_LIST_FILE), exist_ok=True)
+SYMBOL_LIST_FILE.parent.mkdir(parents=True, exist_ok=True)
 
 # =========================
 # GHI FILE
 # =========================
-with open(SYMBOL_LIST_FILE, "w", encoding="utf-8") as f:
+with SYMBOL_LIST_FILE.open("w", encoding="utf-8") as f:
     for i in range(0, len(random_codes), 10):
         chunk = random_codes[i:i + 10]
         f.write(str(chunk) + "\n")

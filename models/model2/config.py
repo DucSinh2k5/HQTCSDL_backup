@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 
 # =========================
 # CLICKHOUSE CONFIG
@@ -26,19 +26,13 @@ TEST_START_DATE = "2024-01-01"
 # =========================
 # MODEL PATH
 # =========================
-BASE_DIR = "HQTCSDL_stocks/models/model2"
+BASE_DIR = Path(__file__).resolve().parent
 
-MODEL_DIR = os.path.join(BASE_DIR, "saved_models")
+MODEL_DIR = BASE_DIR / "saved_models"
 
-LIGHTGBM_MODEL_PATH = os.path.join(
-    MODEL_DIR,
-    "future_return_lgbm.pkl"
-)
+LIGHTGBM_MODEL_PATH = MODEL_DIR / "future_return_lgbm.pkl"
 
-SYMBOL_ENCODER_PATH = os.path.join(
-    MODEL_DIR,
-    "symbol_encoder.pkl"
-)
+SYMBOL_ENCODER_PATH = MODEL_DIR / "symbol_encoder.pkl"
 
 # =========================
 # OUTLIER
