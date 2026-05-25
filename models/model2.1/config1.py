@@ -44,6 +44,8 @@ TARGET_MAX = 0.25
 # BASE FEATURES
 # =========================
 BASE_FEATURE_COLUMNS = [
+    "encode_sector",
+
     "open",
     "high",
     "low",
@@ -83,19 +85,11 @@ BASE_FEATURE_COLUMNS = [
 # =========================
 # LAG CONFIG
 # =========================
-LAG_DAYS = [1, 2, 3, 5]
+LAG_DAYS = []
 
-LAG_SOURCE_COLUMNS = [
-    "return_1d",
-    "volume_change_1d",
-    "volatility_5d"
-]
+LAG_SOURCE_COLUMNS = []
 
-LAG_FEATURE_COLUMNS = [
-    f"{col}_lag{lag}"
-    for col in LAG_SOURCE_COLUMNS
-    for lag in LAG_DAYS
-]
+LAG_FEATURE_COLUMNS = []
 
 # =========================
 # INTERACTION FEATURES
