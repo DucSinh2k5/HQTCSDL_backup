@@ -20,6 +20,12 @@ Chay walk-forward backtest:
 python walk_forward.py
 ```
 
+Tao dashboard HTML tu cac report da sinh:
+
+```bash
+python dashboard_model3.py
+```
+
 Output chinh:
 
 - `models/trading_signal_xgb_classifier.pkl`
@@ -27,3 +33,4 @@ Output chinh:
 - `reports/metrics.json`
 - `reports/backtest.csv`
 - `reports/backtest_metrics.json`
+- `reports/model3_dashboard.html`
