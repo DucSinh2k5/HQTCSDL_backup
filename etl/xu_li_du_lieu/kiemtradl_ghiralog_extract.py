@@ -6,11 +6,13 @@ import pandas as pd
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CSV_PATH = PROJECT_ROOT / "data" / "dirty" / "Data_500_stocks_dirty.csv"
+REFERENCE_PATH = PROJECT_ROOT / "data" / "clean" / "Data_500_stocks_2015-2026.csv"
 OUTPUT_DIR = PROJECT_ROOT / "data" / "khaosatdata"
 
 EXPECTED_COLUMNS = ["time", "open", "high", "low", "close", "volume", "symbol"]
 PRICE_COLUMNS = ["open", "high", "low", "close"]
 NUMERIC_COLUMNS = PRICE_COLUMNS + ["volume"]
+DIRTY_SYMBOLS = {"???", "123", "NULL", "A@", "ZZZZZZ"}
 
 
 def ensure_output_dir() -> None:
@@ -25,6 +27,13 @@ def save_df(df: pd.DataFrame, filename: str) -> Path:
 
 def to_numeric_series(df: pd.DataFrame, column: str) -> pd.Series:
 	return pd.to_numeric(df[column], errors="coerce")
+
+
+def load_valid_symbols() -> set[str]:
+	if not REFERENCE_PATH.exists():
+		return set()
+	reference = pd.read_csv(REFERENCE_PATH, usecols=["symbol"])
+	return set(reference["symbol"].astype("string").str.strip().str.upper().dropna())
 
 
 def add_section(report_lines: List[str], title: str) -> None:
@@ -86,18 +95,31 @@ def check_time(df: pd.DataFrame, report_lines: List[str]) -> Optional[pd.Series]
 	return parsed_time
 
 
-def check_symbol(df: pd.DataFrame, report_lines: List[str]) -> None:
+def check_symbol(
+	df: pd.DataFrame, report_lines: List[str], valid_symbols: set[str]
+) -> None:
 	add_section(report_lines, "Symbol column")
 	if "symbol" not in df.columns:
 		report_lines.append("Missing column: symbol")
 		return
 
-	symbol_series = df["symbol"].astype(str).str.strip()
-	invalid_symbol_mask = ~symbol_series.str.match(r"^[A-Z0-9]+$")
+	symbol_series = df["symbol"].astype("string").str.strip().str.upper()
+	invalid_format_mask = symbol_series.isna() | ~symbol_series.str.match(
+		r"^[A-Z0-9]+$", na=False
+	)
+	dirty_marker_mask = symbol_series.isin(DIRTY_SYMBOLS)
+	if valid_symbols:
+		unknown_symbol_mask = ~symbol_series.isin(valid_symbols)
+	else:
+		unknown_symbol_mask = pd.Series(False, index=df.index)
+	invalid_symbol_mask = invalid_format_mask | dirty_marker_mask | unknown_symbol_mask
 	invalid_symbol_rows = df.loc[invalid_symbol_mask]
 	if not invalid_symbol_rows.empty:
 		save_df(invalid_symbol_rows, "invalid_symbol.csv")
 	report_lines.append(f"Invalid symbol values: {len(invalid_symbol_rows)}")
+	report_lines.append(f"Invalid format symbols: {int(invalid_format_mask.sum())}")
+	report_lines.append(f"Known dirty marker symbols: {int(dirty_marker_mask.sum())}")
+	report_lines.append(f"Symbols outside reference: {int(unknown_symbol_mask.sum())}")
 
 	symbol_counts = (
 		symbol_series.value_counts().rename_axis("symbol").reset_index(name="row_count")
@@ -248,10 +270,13 @@ def check_outliers(
 def main() -> None:
 	ensure_output_dir()
 	df = pd.read_csv(CSV_PATH)
+	valid_symbols = load_valid_symbols()
 
 	report_lines: List[str] = []
 	add_section(report_lines, "Dataset overview")
 	report_lines.append(f"Source: {CSV_PATH}")
+	report_lines.append(f"Reference symbols: {REFERENCE_PATH}")
+	report_lines.append(f"Valid symbol count: {len(valid_symbols)}")
 	report_lines.append(f"Rows: {len(df)}")
 	report_lines.append(f"Columns: {df.shape[1]}")
 	report_lines.append(f"Column list: {list(df.columns)}")
@@ -265,7 +290,7 @@ def main() -> None:
 	check_missing(df, report_lines)
 	check_duplicates(df, report_lines)
 	check_time(df, report_lines)
-	check_symbol(df, report_lines)
+	check_symbol(df, report_lines, valid_symbols)
 	numeric_data = check_numeric(df, report_lines)
 	check_price_rules(df, numeric_data, report_lines)
 	check_volume(df, numeric_data, report_lines)

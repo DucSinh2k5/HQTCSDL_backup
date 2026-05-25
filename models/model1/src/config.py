@@ -1,5 +1,17 @@
+from pathlib import Path
 
-DATA_PATH = "data/raw/features_all.csv"
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+
+DATA_PATH = PROJECT_ROOT / "data" / "clean" / "features_all.csv"
+
+CLICKHOUSE_HOST = "zmbwqe05t3.ap-southeast-1.aws.clickhouse.cloud"
+CLICKHOUSE_PORT = 8443
+CLICKHOUSE_USER = "default"
+CLICKHOUSE_PASSWORD = "BiHI92y_rbkgT"
+CLICKHOUSE_DATABASE = "stock"
+CLICKHOUSE_TABLE = "features_all"
+CLICKHOUSE_SECURE = True
 
 MODEL_PATH = "models/price_forecasting_xgb.pkl"
 
@@ -38,6 +50,8 @@ WALK_FORWARD_STEP_RATIO = 0.1
 WALK_FORWARD_MAX_FOLDS = 4
 
 FEATURES = [
+    "encode_sector",
+
     "open", "high", "low", "close", "volume",
 
     "return_1d", "return_3d", "return_5d", "return_10d", "return_20d",

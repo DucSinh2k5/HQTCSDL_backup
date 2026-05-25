@@ -7,7 +7,6 @@ from src.config import (
     BACKTEST_MIN_PREDICTED_RETURN,
     BACKTEST_MIN_VOLUME,
     BACKTEST_TOP_K,
-    DATA_PATH,
     EARLY_STOPPING_ROUNDS,
     FEATURES,
     HORIZON,
@@ -38,7 +37,7 @@ def main():
     create_folders()
 
     print("Loading data...")
-    df = load_data(DATA_PATH)
+    df = load_data()
 
     print("Preprocessing data...")
     df, final_features = preprocess_data(

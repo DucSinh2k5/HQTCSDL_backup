@@ -2,7 +2,6 @@ import os
 import json
 
 from src.config import (
-    DATA_PATH,
     MODEL_PATH,
     METRICS_PATH,
     PREDICTION_PATH,
@@ -51,7 +50,7 @@ def main():
     create_folders()
 
     print("Loading data...")
-    df = load_data(DATA_PATH)
+    df = load_data()
 
     print("Preprocessing data...")
     df, final_features = preprocess_data(

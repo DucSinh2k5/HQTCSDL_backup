@@ -44,6 +44,8 @@ TARGET_MAX = 0.25
 # BASE FEATURES
 # =========================
 BASE_FEATURE_COLUMNS = [
+    "encode_sector",
+
     "open",
     "high",
     "low",

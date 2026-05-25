@@ -1,3 +1,4 @@
+import argparse
 from pathlib import Path
 
 import numpy as np
@@ -12,14 +13,19 @@ except ModuleNotFoundError:
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = BASE_DIR.parent
 OUTPUT_CSV = PROJECT_DIR / "data" / "clean" / "features_all.csv"
+SYMBOL_ENCODING_CSV = PROJECT_DIR / "data" / "clean" / "symbol_sector_encoding.csv"
 SOURCE_DATABASE = "stock"
 SOURCE_TABLE = "stock_prices"
+SYMBOL_ENCODING_DATABASE = "stock"
+SYMBOL_ENCODING_TABLE = "symbol_sector_encoding"
 TARGET_DATABASE = "stock"
 TARGET_TABLE = "features_all"
+DEFAULT_EXPORT_CHUNKSIZE = 1_000
 
 FEATURES_ALL_COLUMNS = [
     "trading_date",
     "symbol",
+    "encode_sector",
     "open",
     "high",
     "low",
@@ -79,6 +85,7 @@ NUMERIC_COLUMNS = [
     "body_ratio",
     "close_position",
 ]
+INTEGER_COLUMNS = ["encode_sector"]
 
 
 def quote_identifier(name: str) -> str:
@@ -102,6 +109,7 @@ def create_features_all_table(client, database: str = "stock") -> None:
         (
             trading_date Date,
             symbol String,
+            encode_sector Nullable(Int32),
             open Nullable(Float64),
             high Nullable(Float64),
             low Nullable(Float64),
@@ -200,6 +208,84 @@ def load_stock_prices(
     return prices
 
 
+def normalize_symbol_sector_encoding(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return pd.DataFrame(columns=["symbol", "encode_sector"])
+
+    normalized = df.copy()
+    normalized.columns = [str(column).strip().lower() for column in normalized.columns]
+
+    missing_columns = {"symbol", "encode_sector"} - set(normalized.columns)
+    if missing_columns:
+        print(
+            "[features_all] Missing symbol sector encoding columns: "
+            f"{sorted(missing_columns)}"
+        )
+        return pd.DataFrame(columns=["symbol", "encode_sector"])
+
+    normalized["symbol"] = normalized["symbol"].astype("string").str.strip().str.upper()
+    normalized["encode_sector"] = pd.to_numeric(
+        normalized["encode_sector"], errors="coerce"
+    ).astype("Int64")
+    normalized = normalized.dropna(subset=["symbol"])
+    normalized = normalized[normalized["symbol"] != ""]
+    normalized = normalized.drop_duplicates(subset=["symbol"], keep="last")
+    return normalized[["symbol", "encode_sector"]].reset_index(drop=True)
+
+
+def load_symbol_sector_encoding(
+    client,
+    database: str = SYMBOL_ENCODING_DATABASE,
+    table: str = SYMBOL_ENCODING_TABLE,
+) -> pd.DataFrame:
+    query = f"""
+        SELECT
+            symbol,
+            encode_sector
+        FROM {quote_identifier(database)}.{quote_identifier(table)}
+        ORDER BY symbol
+    """
+    print(f"[features_all] Loading sector encoding from {database}.{table}")
+    try:
+        encoding = normalize_symbol_sector_encoding(client.query_df(query))
+    except Exception as exc:
+        print(f"[features_all] Could not load sector encoding table: {exc}")
+        return pd.DataFrame(columns=["symbol", "encode_sector"])
+
+    print(f"[features_all] Loaded sector encodings: {len(encoding):,} symbols")
+    return encoding
+
+
+def load_symbol_sector_encoding_csv(
+    csv_path: Path = SYMBOL_ENCODING_CSV,
+) -> pd.DataFrame:
+    if not csv_path.exists():
+        print(f"[features_all] Sector encoding CSV not found: {csv_path}")
+        return pd.DataFrame(columns=["symbol", "encode_sector"])
+    return normalize_symbol_sector_encoding(pd.read_csv(csv_path))
+
+
+def merge_symbol_sector_encoding(
+    features_df: pd.DataFrame,
+    symbol_encoding_df: pd.DataFrame,
+) -> pd.DataFrame:
+    features = features_df.drop(columns=["encode_sector"], errors="ignore").copy()
+    encoding = normalize_symbol_sector_encoding(symbol_encoding_df)
+
+    if encoding.empty:
+        features["encode_sector"] = pd.NA
+        print("[features_all] No sector encoding available; encode_sector is NULL.")
+        return features
+
+    merged = features.merge(encoding, on="symbol", how="left")
+    missing_count = int(merged["encode_sector"].isna().sum())
+    if missing_count:
+        print(f"[features_all] Rows without encode_sector after join: {missing_count:,}")
+    else:
+        print("[features_all] Joined encode_sector for all feature rows.")
+    return merged
+
+
 def build_features_all(prices_df: pd.DataFrame) -> pd.DataFrame:
     df = normalize_prices(prices_df)
     if df.empty:
@@ -259,6 +345,7 @@ def build_features_all(prices_df: pd.DataFrame) -> pd.DataFrame:
         0.5,
     )
     df["created_at"] = pd.Timestamp.now().floor("s")
+    df["encode_sector"] = pd.NA
 
     df = df.replace([np.inf, -np.inf], np.nan)
     df = df[FEATURES_ALL_COLUMNS].copy()
@@ -287,8 +374,49 @@ def prepare_features_all(df: pd.DataFrame) -> pd.DataFrame:
     for column in NUMERIC_COLUMNS:
         prepared[column] = pd.to_numeric(prepared[column], errors="coerce")
 
+    for column in INTEGER_COLUMNS:
+        values = pd.to_numeric(prepared[column], errors="coerce").astype("Int64")
+        prepared[column] = values.astype(object).where(values.notna(), None)
+
     prepared = prepared.replace([np.inf, -np.inf], np.nan)
     return prepared.where(pd.notna(prepared), None)
+
+
+def order_features_all_columns(df: pd.DataFrame) -> pd.DataFrame:
+    output = df.copy()
+    for column in FEATURES_ALL_COLUMNS:
+        if column not in output.columns:
+            output[column] = pd.NA
+    return output[FEATURES_ALL_COLUMNS]
+
+
+def write_features_all_csv(
+    df: pd.DataFrame,
+    output_path: Path,
+    chunksize: int = DEFAULT_EXPORT_CHUNKSIZE,
+) -> Path:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path = output_path.with_suffix(output_path.suffix + ".tmp")
+    if temp_path.exists():
+        temp_path.unlink()
+
+    temp_path.write_text(",".join(FEATURES_ALL_COLUMNS) + "\n", encoding="utf-8")
+    total_rows = len(df)
+    if total_rows == 0:
+        temp_path.replace(output_path)
+        return output_path
+
+    for start in range(0, total_rows, chunksize):
+        chunk = order_features_all_columns(df.iloc[start : start + chunksize])
+        chunk.to_csv(
+            temp_path,
+            mode="a",
+            index=False,
+            header=False,
+        )
+
+    temp_path.replace(output_path)
+    return output_path
 
 
 def export_features_all_to_csv(
@@ -296,7 +424,14 @@ def export_features_all_to_csv(
     output_path: Path = OUTPUT_CSV,
     database: str = TARGET_DATABASE,
     table: str = TARGET_TABLE,
+    source_df: pd.DataFrame | None = None,
+    chunksize: int = DEFAULT_EXPORT_CHUNKSIZE,
 ) -> Path:
+    if source_df is not None:
+        write_features_all_csv(source_df, output_path, chunksize=chunksize)
+        print(f"[clickhouse] Exported {len(source_df):,} rows to {output_path}")
+        return output_path
+
     columns_sql = ",\n            ".join(FEATURES_ALL_COLUMNS)
     query = f"""
         SELECT
@@ -306,27 +441,61 @@ def export_features_all_to_csv(
     """
 
     df = client.query_df(query)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(output_path, index=False)
+    write_features_all_csv(df, output_path, chunksize=chunksize)
     print(f"[clickhouse] Exported {len(df):,} rows to {output_path}")
     return output_path
 
 
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Build/upload stock.features_all and export it to CSV."
+    )
+    parser.add_argument(
+        "--export-only",
+        action="store_true",
+        help="Only export stock.features_all to local CSV; do not rebuild/upload.",
+    )
+    parser.add_argument(
+        "--skip-export",
+        action="store_true",
+        help="Upload stock.features_all but skip local CSV export.",
+    )
+    parser.add_argument(
+        "--export-chunksize",
+        type=int,
+        default=DEFAULT_EXPORT_CHUNKSIZE,
+        help="Rows per CSV export chunk.",
+    )
+    return parser.parse_args()
+
+
 def main() -> None:
+    args = parse_args()
     client = get_clickhouse_client()
     if client is None:
         print("[clickhouse] Could not create ClickHouse client. Upload/export stopped.")
         return
 
+    if args.export_only:
+        export_features_all_to_csv(client, chunksize=args.export_chunksize)
+        return
+
     prices_df = load_stock_prices(client)
+    symbol_encoding_df = load_symbol_sector_encoding(client)
     features_df = build_features_all(prices_df)
+    features_df = merge_symbol_sector_encoding(features_df, symbol_encoding_df)
     df = prepare_features_all(features_df)
 
     create_features_all_table(client, database=TARGET_DATABASE)
     client.insert_df(table=f"{TARGET_DATABASE}.{TARGET_TABLE}", df=df)
     print(f"Uploaded {len(df):,} rows to {TARGET_DATABASE}.{TARGET_TABLE}")
 
-    export_features_all_to_csv(client)
+    if not args.skip_export:
+        export_features_all_to_csv(
+            client,
+            source_df=df,
+            chunksize=args.export_chunksize,
+        )
 
 
 if __name__ == "__main__":

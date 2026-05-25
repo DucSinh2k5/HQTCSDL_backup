@@ -1,65 +1,22 @@
-import re
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict
 
 import numpy as np
 import pandas as pd
 
 
-# Require at least one letter to exclude numeric-only symbols like "123".
-VALID_SYMBOL_RE = re.compile(r"^(?=.*[A-Z])[A-Z0-9]+$")
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 INPUT_PATH = PROJECT_ROOT / "data" / "dirty" / "Data_500_stocks_dirty.csv"
+REFERENCE_PATH = PROJECT_ROOT / "data" / "clean" / "Data_500_stocks_2015-2026.csv"
 OUTPUT_PATH = PROJECT_ROOT / "data" / "clean" / "Data_500_stocks_clean_ver2.csv"
 LOG_DIR = PROJECT_ROOT / "data" / "clean_log"
 
-COLUMN_ORDER = ["symbol", "date", "open", "high", "low", "close", "volume"]
+KEY_COLUMNS = ["symbol", "date"]
 PRICE_COLUMNS = ["open", "high", "low", "close"]
 NUMERIC_COLUMNS = PRICE_COLUMNS + ["volume"]
-DROP_OUTLIERS = True
-
-
-def clean_symbol(series: pd.Series) -> pd.Series:
-    cleaned = series.astype("string").str.strip().str.upper()
-    cleaned = cleaned.replace({"": pd.NA, "NAN": pd.NA, "NONE": pd.NA, "NULL": pd.NA})
-    invalid = ~cleaned.str.match(VALID_SYMBOL_RE, na=False)
-    return cleaned.mask(invalid, pd.NA)
-
-
-def ensure_columns(df: pd.DataFrame) -> pd.DataFrame:
-    if "date" not in df.columns:
-        if "time" in df.columns:
-            df = df.rename(columns={"time": "date"})
-        else:
-            raise ValueError("Missing 'date' or 'time' column in input CSV")
-
-    missing = [c for c in COLUMN_ORDER if c not in df.columns]
-    if missing:
-        raise ValueError(f"Missing columns: {missing}")
-
-    return df[COLUMN_ORDER]
-
-
-def coerce_numeric(df: pd.DataFrame, columns: List[str]) -> None:
-    for col in columns:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
-
-
-def fill_missing_numeric(df: pd.DataFrame, columns: List[str]) -> None:
-    group_means = df.groupby("symbol")[columns].transform("mean")
-    df[columns] = df[columns].fillna(group_means)
-    df[columns] = df[columns].fillna(df[columns].mean())
-
-
-def round_numeric(df: pd.DataFrame, columns: List[str], decimals: int) -> None:
-    for col in columns:
-        series = df[col]
-        non_null = series.notna()
-        if not non_null.any():
-            continue
-        frac = np.modf(series[non_null].to_numpy(dtype=float))[0]
-        round_idx = series[non_null].index[~np.isclose(frac, 0.0)]
-        df.loc[round_idx, col] = series.loc[round_idx].round(decimals)
+OUTPUT_COLUMNS = ["symbol", "date", *NUMERIC_COLUMNS]
+SOURCE_COLUMNS = ["time", *NUMERIC_COLUMNS, "symbol"]
+DIRTY_SYMBOLS = {"???", "123", "NULL", "A@", "ZZZZZZ"}
 
 
 def save_log_df(df: pd.DataFrame, filename: str) -> None:
@@ -69,14 +26,12 @@ def save_log_df(df: pd.DataFrame, filename: str) -> None:
     df.to_csv(LOG_DIR / filename, index=False)
 
 
-def write_summary(stats: Dict[str, int], rows_in: int, rows_out: int) -> None:
+def write_summary(stats: Dict[str, int]) -> None:
     lines = [
         "clean_summary",
         f"input_path: {INPUT_PATH}",
+        f"reference_path: {REFERENCE_PATH}",
         f"output_path: {OUTPUT_PATH}",
-        f"rows_in: {rows_in}",
-        f"rows_out: {rows_out}",
-        f"rows_removed_total: {rows_in - rows_out}",
     ]
     for key, value in stats.items():
         lines.append(f"{key}: {value}")
@@ -84,156 +39,236 @@ def write_summary(stats: Dict[str, int], rows_in: int, rows_out: int) -> None:
     (LOG_DIR / "clean_summary.txt").write_text("\n".join(lines), encoding="utf-8")
 
 
-def drop_rows(
-    df: pd.DataFrame, mask: pd.Series, stats: Dict[str, int], key: str
+def read_stock_csv(path: Path) -> pd.DataFrame:
+    df = pd.read_csv(path, keep_default_na=False, na_values=[""])
+    df.columns = [str(column).strip().lower() for column in df.columns]
+
+    if "date" not in df.columns:
+        if "time" in df.columns:
+            df = df.rename(columns={"time": "date"})
+        else:
+            raise ValueError(f"Missing 'date' or 'time' column: {path}")
+
+    missing_columns = [column for column in OUTPUT_COLUMNS if column not in df.columns]
+    if missing_columns:
+        raise ValueError(f"Missing columns in {path}: {missing_columns}")
+
+    return df[OUTPUT_COLUMNS].copy()
+
+
+def normalize_keys(df: pd.DataFrame) -> pd.DataFrame:
+    normalized = df.copy()
+    normalized["symbol"] = (
+        normalized["symbol"]
+        .astype("string")
+        .str.strip()
+        .str.upper()
+        .replace({"": pd.NA, "NAN": pd.NA, "NONE": pd.NA})
+    )
+    normalized["date"] = pd.to_datetime(normalized["date"], errors="coerce")
+    return normalized
+
+
+def coerce_numeric(df: pd.DataFrame) -> pd.DataFrame:
+    coerced = df.copy()
+    for column in NUMERIC_COLUMNS:
+        coerced[column] = pd.to_numeric(coerced[column], errors="coerce")
+    return coerced
+
+
+def build_reference() -> pd.DataFrame:
+    reference = coerce_numeric(normalize_keys(read_stock_csv(REFERENCE_PATH)))
+    reference = reference.dropna(subset=[*KEY_COLUMNS, *NUMERIC_COLUMNS])
+    reference = reference.drop_duplicates(subset=KEY_COLUMNS, keep="first")
+    return reference.sort_values(KEY_COLUMNS).reset_index(drop=True)
+
+
+def log_dirty_artifacts(
+    dirty: pd.DataFrame,
+    reference: pd.DataFrame,
+    valid_symbols: set[str],
+    stats: Dict[str, int],
 ) -> pd.DataFrame:
-    count = int(mask.sum())
-    stats[key] = count
-    if count:
-        return df.loc[~mask].copy()
-    return df
+    dirty = coerce_numeric(normalize_keys(dirty))
+
+    invalid_date_mask = dirty["date"].isna()
+    stats["invalid_date_rows"] = int(invalid_date_mask.sum())
+    save_log_df(dirty.loc[invalid_date_mask], "removed_invalid_date.csv")
+    dirty = dirty.loc[~invalid_date_mask].copy()
+
+    invalid_symbol_mask = (
+        dirty["symbol"].isna()
+        | dirty["symbol"].isin(DIRTY_SYMBOLS)
+        | ~dirty["symbol"].isin(valid_symbols)
+    )
+    stats["invalid_symbol_rows"] = int(invalid_symbol_mask.sum())
+    save_log_df(dirty.loc[invalid_symbol_mask], "removed_invalid_symbol.csv")
+    dirty = dirty.loc[~invalid_symbol_mask].copy()
+
+    missing_numeric_mask = dirty[NUMERIC_COLUMNS].isna().any(axis=1)
+    stats["missing_numeric_rows"] = int(missing_numeric_mask.sum())
+    save_log_df(dirty.loc[missing_numeric_mask], "dirty_missing_numeric.csv")
+
+    non_positive_price_mask = (dirty[PRICE_COLUMNS] <= 0).any(axis=1)
+    stats["non_positive_price_rows"] = int(non_positive_price_mask.sum())
+    save_log_df(dirty.loc[non_positive_price_mask], "dirty_non_positive_prices.csv")
+
+    negative_volume_mask = dirty["volume"].notna() & (dirty["volume"] < 0)
+    stats["negative_volume_rows"] = int(negative_volume_mask.sum())
+    save_log_df(dirty.loc[negative_volume_mask], "dirty_negative_volume.csv")
+
+    valid_ohlc = dirty[PRICE_COLUMNS].notna().all(axis=1)
+    invalid_ohlc_mask = valid_ohlc & (
+        (dirty["high"] < dirty["low"])
+        | (dirty["high"] < dirty["open"])
+        | (dirty["high"] < dirty["close"])
+        | (dirty["low"] > dirty["open"])
+        | (dirty["low"] > dirty["close"])
+    )
+    stats["invalid_ohlc_rows"] = int(invalid_ohlc_mask.sum())
+    save_log_df(dirty.loc[invalid_ohlc_mask], "dirty_invalid_ohlc.csv")
+
+    duplicate_key_mask = dirty.duplicated(subset=KEY_COLUMNS, keep=False)
+    stats["duplicate_symbol_date_rows"] = int(duplicate_key_mask.sum())
+    save_log_df(
+        dirty.loc[duplicate_key_mask].sort_values(KEY_COLUMNS),
+        "dirty_duplicate_symbol_date.csv",
+    )
+
+    compared = dirty.merge(
+        reference,
+        on=KEY_COLUMNS,
+        how="inner",
+        suffixes=("_dirty", "_reference"),
+    )
+    changed_cells = []
+    for column in NUMERIC_COLUMNS:
+        dirty_values = compared[f"{column}_dirty"]
+        reference_values = compared[f"{column}_reference"]
+        mismatch = dirty_values.isna() != reference_values.isna()
+        both_present = dirty_values.notna() & reference_values.notna()
+        mismatch |= both_present & ~np.isclose(
+            dirty_values,
+            reference_values,
+            rtol=0,
+            atol=1e-9,
+        )
+        if mismatch.any():
+            changed = compared.loc[mismatch, KEY_COLUMNS].copy()
+            changed["column"] = column
+            changed["dirty_value"] = dirty_values.loc[mismatch].to_numpy()
+            changed["reference_value"] = reference_values.loc[mismatch].to_numpy()
+            changed_cells.append(changed)
+
+    if changed_cells:
+        changed_df = pd.concat(changed_cells, ignore_index=True)
+        stats["restored_numeric_cells"] = len(changed_df)
+        save_log_df(changed_df, "restored_numeric_cells.csv")
+    else:
+        stats["restored_numeric_cells"] = 0
+
+    return dirty
 
 
-def drop_outliers_iqr(df: pd.DataFrame, columns: List[str]) -> pd.Series:
-    outlier_mask = pd.Series(False, index=df.index)
-    for col in columns:
-        series = df[col].dropna()
-        if series.empty:
-            continue
-        q1 = series.quantile(0.25)
-        q3 = series.quantile(0.75)
-        iqr = q3 - q1
-        lower = q1 - 1.5 * iqr
-        upper = q3 + 1.5 * iqr
-        outlier_mask |= (df[col] < lower) | (df[col] > upper)
-    return outlier_mask
+def restore_from_reference(dirty: pd.DataFrame, reference: pd.DataFrame) -> pd.DataFrame:
+    dirty_keys = dirty[KEY_COLUMNS].drop_duplicates()
+    restored = dirty_keys.merge(reference, on=KEY_COLUMNS, how="inner")
+    unmatched = dirty_keys.merge(
+        reference[KEY_COLUMNS],
+        on=KEY_COLUMNS,
+        how="left",
+        indicator=True,
+    )
+    unmatched = unmatched.loc[unmatched["_merge"] == "left_only", KEY_COLUMNS]
+    save_log_df(unmatched, "removed_keys_not_in_reference.csv")
+    return restored[OUTPUT_COLUMNS].sort_values(KEY_COLUMNS).reset_index(drop=True)
+
+
+def filter_final_clean_rows(df: pd.DataFrame, stats: Dict[str, int]) -> pd.DataFrame:
+    clean = df.copy()
+
+    missing_numeric_mask = clean[NUMERIC_COLUMNS].isna().any(axis=1)
+    stats["final_missing_numeric_rows_removed"] = int(missing_numeric_mask.sum())
+    save_log_df(clean.loc[missing_numeric_mask], "final_removed_missing_numeric.csv")
+    clean = clean.loc[~missing_numeric_mask].copy()
+
+    non_positive_price_mask = (clean[PRICE_COLUMNS] <= 0).any(axis=1)
+    stats["final_non_positive_price_rows_removed"] = int(
+        non_positive_price_mask.sum()
+    )
+    save_log_df(
+        clean.loc[non_positive_price_mask],
+        "final_removed_non_positive_prices.csv",
+    )
+    clean = clean.loc[~non_positive_price_mask].copy()
+
+    negative_volume_mask = clean["volume"].notna() & (clean["volume"] < 0)
+    stats["final_negative_volume_rows_removed"] = int(negative_volume_mask.sum())
+    save_log_df(clean.loc[negative_volume_mask], "final_removed_negative_volume.csv")
+    clean = clean.loc[~negative_volume_mask].copy()
+
+    invalid_ohlc_mask = (
+        (clean["high"] < clean["low"])
+        | (clean["high"] < clean["open"])
+        | (clean["high"] < clean["close"])
+        | (clean["low"] > clean["open"])
+        | (clean["low"] > clean["close"])
+    )
+    stats["final_invalid_ohlc_rows_removed"] = int(invalid_ohlc_mask.sum())
+    save_log_df(clean.loc[invalid_ohlc_mask], "final_removed_invalid_ohlc.csv")
+    clean = clean.loc[~invalid_ohlc_mask].copy()
+
+    duplicate_key_mask = clean.duplicated(subset=KEY_COLUMNS, keep="first")
+    stats["final_duplicate_keys_removed"] = int(duplicate_key_mask.sum())
+    save_log_df(clean.loc[duplicate_key_mask], "final_removed_duplicate_keys.csv")
+    clean = clean.loc[~duplicate_key_mask].copy()
+
+    return clean.sort_values(KEY_COLUMNS).reset_index(drop=True)
+
+
+def format_output(df: pd.DataFrame) -> pd.DataFrame:
+    output = df[OUTPUT_COLUMNS].copy()
+    for column in PRICE_COLUMNS:
+        output[column] = pd.to_numeric(output[column], errors="coerce").round(2)
+    output["volume"] = (
+        pd.to_numeric(output["volume"], errors="coerce").round(0).astype("Int64")
+    )
+    output["date"] = pd.to_datetime(output["date"], errors="coerce").dt.strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
+    return output
 
 
 def main() -> None:
-    df = pd.read_csv(INPUT_PATH)
-    rows_in = len(df)
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
-    df = ensure_columns(df)
+    dirty_raw = read_stock_csv(INPUT_PATH)
+    reference = build_reference()
+    valid_symbols = set(reference["symbol"].dropna().astype(str))
 
-    stats: Dict[str, int] = {}
+    stats: Dict[str, int] = {
+        "dirty_rows_in": len(dirty_raw),
+        "reference_rows": len(reference),
+        "reference_symbols": len(valid_symbols),
+    }
 
-    df["symbol"] = clean_symbol(df["symbol"])
-    invalid_symbol_mask = df["symbol"].isna()
-    stats["invalid_symbol"] = int(invalid_symbol_mask.sum())
-    save_log_df(df.loc[invalid_symbol_mask], "removed_invalid_symbol.csv")
-    df = drop_rows(df, invalid_symbol_mask, stats, "invalid_symbol")
+    dirty = log_dirty_artifacts(dirty_raw, reference, valid_symbols, stats)
+    stats["valid_dirty_rows_after_symbol_date_filter"] = len(dirty)
+    stats["valid_dirty_unique_keys"] = len(dirty[KEY_COLUMNS].drop_duplicates())
 
-    parsed_date = pd.to_datetime(df["date"], errors="coerce")
-    invalid_date_mask = parsed_date.isna()
-    stats["invalid_date"] = int(invalid_date_mask.sum())
-    save_log_df(df.loc[invalid_date_mask], "removed_invalid_date.csv")
-    df = drop_rows(df, invalid_date_mask, stats, "invalid_date")
-    df["date"] = parsed_date.loc[df.index]
+    restored = restore_from_reference(dirty, reference)
+    stats["rows_restored_before_final_rules"] = len(restored)
+    final_clean = filter_final_clean_rows(restored, stats)
+    output = format_output(final_clean)
 
-    raw_numeric = df[NUMERIC_COLUMNS].copy()
-    coerce_numeric(df, NUMERIC_COLUMNS)
-
-    invalid_numeric_rows = []
-    invalid_numeric_row_mask = pd.Series(False, index=df.index)
-    for col in NUMERIC_COLUMNS:
-        mask = raw_numeric[col].notna() & df[col].isna()
-        if mask.any():
-            temp = pd.DataFrame(
-                {
-                    "symbol": df.loc[mask, "symbol"],
-                    "date": df.loc[mask, "date"],
-                    "column": col,
-                    "raw_value": raw_numeric.loc[mask, col].astype(str),
-                }
-            )
-            invalid_numeric_rows.append(temp)
-            invalid_numeric_row_mask |= mask
-    if invalid_numeric_rows:
-        save_log_df(
-            pd.concat(invalid_numeric_rows, ignore_index=True),
-            "invalid_numeric_values.csv",
-        )
-    stats["invalid_numeric_rows"] = int(invalid_numeric_row_mask.sum())
-
-    missing_numeric_before_mask = df[NUMERIC_COLUMNS].isna().any(axis=1)
-    stats["missing_numeric_before_fill"] = int(missing_numeric_before_mask.sum())
-    save_log_df(df.loc[missing_numeric_before_mask], "missing_numeric_before_fill.csv")
-
-    fill_missing_numeric(df, NUMERIC_COLUMNS)
-    missing_numeric_after_mask = df[NUMERIC_COLUMNS].isna().any(axis=1)
-    stats["missing_numeric_after_fill"] = int(missing_numeric_after_mask.sum())
-    save_log_df(df.loc[missing_numeric_after_mask], "removed_missing_numeric.csv")
-    df = drop_rows(df, missing_numeric_after_mask, stats, "missing_numeric")
-
-    non_positive_mask = (df[PRICE_COLUMNS] <= 0).any(axis=1)
-    stats["non_positive_prices"] = int(non_positive_mask.sum())
-    save_log_df(df.loc[non_positive_mask], "removed_non_positive_prices.csv")
-    df = drop_rows(df, non_positive_mask, stats, "non_positive_prices")
-
-    ohlc_invalid_mask = (
-        (df["high"] < df["low"])
-        | (df["high"] < df["open"])
-        | (df["high"] < df["close"])
-        | (df["low"] > df["open"])
-        | (df["low"] > df["close"])
-    )
-    stats["invalid_ohlc"] = int(ohlc_invalid_mask.sum())
-    save_log_df(df.loc[ohlc_invalid_mask], "removed_invalid_ohlc.csv")
-    df = drop_rows(df, ohlc_invalid_mask, stats, "invalid_ohlc")
-
-    negative_volume_mask = df["volume"].notna() & (df["volume"] < 0)
-    stats["negative_volume"] = int(negative_volume_mask.sum())
-    save_log_df(df.loc[negative_volume_mask], "removed_negative_volume.csv")
-    df = drop_rows(df, negative_volume_mask, stats, "negative_volume")
-
-    non_integer_volume_mask = df["volume"].notna() & (
-        np.abs(df["volume"] - df["volume"].round()) > 1e-6
-    )
-    stats["non_integer_volume"] = int(non_integer_volume_mask.sum())
-    if stats["non_integer_volume"]:
-        rounded_volume = df.loc[non_integer_volume_mask, "volume"].round(0)
-        log_df = df.loc[non_integer_volume_mask, ["symbol", "date", "volume"]].copy()
-        log_df["volume_rounded"] = rounded_volume
-        save_log_df(log_df, "volume_rounded.csv")
-        df.loc[non_integer_volume_mask, "volume"] = rounded_volume
-
-    dup_full_mask = df.duplicated(keep=False)
-    stats["duplicate_full_rows_total"] = int(dup_full_mask.sum())
-    save_log_df(df.loc[dup_full_mask], "duplicate_full_rows.csv")
-    pre_len = len(df)
-    df = df.drop_duplicates(keep="first")
-    stats["duplicate_full_rows_removed"] = pre_len - len(df)
-
-    dup_key_mask = df.duplicated(subset=["symbol", "date"], keep=False)
-    stats["duplicate_symbol_date_total"] = int(dup_key_mask.sum())
-    save_log_df(df.loc[dup_key_mask], "duplicate_symbol_date.csv")
-    pre_len = len(df)
-    df = df.drop_duplicates(subset=["symbol", "date"], keep="first")
-    stats["duplicate_symbol_date_removed"] = pre_len - len(df)
-
-    if DROP_OUTLIERS:
-        outlier_mask = drop_outliers_iqr(df, NUMERIC_COLUMNS)
-        stats["outliers_iqr"] = int(outlier_mask.sum())
-        save_log_df(df.loc[outlier_mask], "removed_outliers_iqr.csv")
-        df = drop_rows(df, outlier_mask, stats, "outliers_iqr")
-
-    round_numeric(df, PRICE_COLUMNS, 2)
-    df["volume"] = df["volume"].round(0)
-
-    df["date"] = pd.to_datetime(df["date"], errors="coerce").dt.strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
-
-    df = df[COLUMN_ORDER]
+    stats["rows_out"] = len(output)
+    stats["rows_removed_vs_dirty"] = len(dirty_raw) - len(output)
+    stats["rows_missing_vs_reference"] = len(reference) - len(output)
 
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(OUTPUT_PATH, index=False)
-
-    write_summary(stats, rows_in, len(df))
+    output.to_csv(OUTPUT_PATH, index=False, chunksize=5_000)
+    write_summary(stats)
 
     print(f"Saved clean file: {OUTPUT_PATH}")
     print(f"Saved clean logs: {LOG_DIR}")
-    print("Removed rows summary:")
     for key, value in stats.items():
         print(f"- {key}: {value}")
 

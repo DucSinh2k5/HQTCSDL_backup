@@ -6,16 +6,10 @@ from pathlib import Path
 from lightgbm import LGBMRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
+from load_data import StockDataLoader
 
-# =========================
-# PATH CONFIG
-# =========================
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-
-DATA_CSV = PROJECT_ROOT / "data" / "clickhouse_data" / "features_all.csv"
-
-MODEL_DIR = PROJECT_ROOT / "models"/ "model2" / "saved_models"
+MODEL_DIR = Path(__file__).resolve().parent / "saved_models"
 MODEL_PATH = MODEL_DIR / "future_return_lgbm.pkl"
 
 
@@ -23,7 +17,7 @@ MODEL_PATH = MODEL_DIR / "future_return_lgbm.pkl"
 # LOAD DATA
 # =========================
 
-df = pd.read_csv(DATA_CSV)
+df = StockDataLoader().load_data()
 
 df["trading_date"] = pd.to_datetime(df["trading_date"], errors="coerce")
 
@@ -65,6 +59,7 @@ symbol_mapping = dict(
 # =========================
 
 feature_cols = [
+    "encode_sector",
     "open",
     "high",
     "low",

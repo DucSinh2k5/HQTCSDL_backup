@@ -12,13 +12,12 @@ MODEL_DIR = Path(__file__).resolve().parent
 
 DEFAULT_FEATURES_ALL_DATABASE = "stock"
 DEFAULT_FEATURES_ALL_TABLE = "features_all"
-DEFAULT_FEATURES_ALL_CSV = PROJECT_ROOT / "data" / "clean" / "features_all.csv"
 DEFAULT_FEATURE_CSV = MODEL_DIR / "output_model5" / "risk_features.csv"
 RISK_DROP_THRESHOLD = -0.05
 
 # These columns are expected to already exist in stock.features_all. Model 5
 # only adds the 5-session target and binary risk label on top of them.
-FEATURE_COLUMNS = [
+TECHNICAL_FEATURE_COLUMNS = [
     "return_1d",
     "return_3d",
     "return_5d",
@@ -42,21 +41,24 @@ FEATURE_COLUMNS = [
     "body_ratio",
     "close_position",
 ]
+FEATURE_COLUMNS = ["encode_sector", *TECHNICAL_FEATURE_COLUMNS]
 
 PRICE_COLUMNS = ["open", "high", "low", "close", "volume"]
 
 FEATURES_ALL_COLUMNS = [
     "trading_date",
     "symbol",
+    "encode_sector",
     *PRICE_COLUMNS,
-    *FEATURE_COLUMNS,
+    *TECHNICAL_FEATURE_COLUMNS,
 ]
 
 FEATURE_TABLE_COLUMNS = [
     "trading_date",
     "symbol",
+    "encode_sector",
     *PRICE_COLUMNS,
-    *FEATURE_COLUMNS,
+    *TECHNICAL_FEATURE_COLUMNS,
     "future_return_5d",
     "risk_drop_label",
     "created_at",
@@ -160,17 +162,6 @@ def load_features_all(
     return normalized
 
 
-def load_features_all_csv(csv_path: Path | str = DEFAULT_FEATURES_ALL_CSV) -> pd.DataFrame:
-    """Local fallback for the exported features_all CSV."""
-    csv_path = Path(csv_path)
-    if not csv_path.exists():
-        print(f"[risk_features] features_all CSV not found: {csv_path}")
-        return _empty_features_all_frame()
-
-    print(f"[risk_features] Loading features_all from CSV: {csv_path}")
-    return normalize_features_all(pd.read_csv(csv_path))
-
-
 def create_risk_features(features_all_df: pd.DataFrame) -> pd.DataFrame:
     """Create model 5 labels from features_all.
 
@@ -249,6 +240,7 @@ def create_clickhouse_feature_table(
         (
             trading_date Date,
             symbol String,
+            encode_sector Nullable(Int32),
             open Nullable(Float64),
             high Nullable(Float64),
             low Nullable(Float64),

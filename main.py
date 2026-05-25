@@ -22,6 +22,10 @@ PIPELINE = [
 		PROJECT_ROOT / "connect_clickhouse" / "load_prices_to_click_house.py",
 	),
 	(
+		"load_symbols",
+		PROJECT_ROOT / "connect_clickhouse" / "load_symbols_to_clickhouse.py",
+	),
+	(
 		"upload_features_all",
 		PROJECT_ROOT / "connect_clickhouse" / "features_all.py",
 	),

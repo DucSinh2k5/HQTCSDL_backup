@@ -24,6 +24,7 @@ TABLE_CONFIGS = {
         "columns": [
             "trading_date",
             "symbol",
+            "encode_sector",
             "open",
             "high",
             "low",
@@ -58,6 +59,7 @@ TABLE_CONFIGS = {
         "schema": """
             trading_date Date,
             symbol String,
+            encode_sector Nullable(Int32),
             open Nullable(Float64),
             high Nullable(Float64),
             low Nullable(Float64),
@@ -92,7 +94,7 @@ TABLE_CONFIGS = {
         "date_columns": ["trading_date"],
         "datetime_columns": ["created_at"],
         "string_columns": ["symbol"],
-        "integer_columns": ["risk_drop_label"],
+        "integer_columns": ["encode_sector", "risk_drop_label"],
     },
     "risk_predictions": {
         "file_name": "risk_predictions.csv",

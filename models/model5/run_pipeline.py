@@ -16,7 +16,6 @@ from models.model5.risk_features import (
     DEFAULT_FEATURES_ALL_TABLE,
     create_risk_features,
     load_features_all,
-    load_features_all_csv,
     save_risk_features_csv,
 )
 from models.model5.save_risk_predictions import (
@@ -43,15 +42,6 @@ def parse_args():
         "--features-table",
         default=DEFAULT_FEATURES_ALL_TABLE,
         help="ClickHouse table containing common model features.",
-    )
-    parser.add_argument(
-        "--features-csv",
-        type=Path,
-        default=None,
-        help=(
-            "Optional local features_all CSV fallback. When omitted, "
-            "features are loaded from ClickHouse."
-        ),
     )
     parser.add_argument(
         "--output-dir",
@@ -82,22 +72,18 @@ def main():
     print("[pipeline] Starting model 5 risk-alert pipeline")
     print(f"[pipeline] Output dir: {output_dir}")
 
-    if args.features_csv:
-        print(f"[pipeline] Source: local features_all CSV ({args.features_csv})")
-        features_all_df = load_features_all_csv(args.features_csv)
-    else:
-        print(
-            "[pipeline] Source: ClickHouse "
-            f"{args.features_database}.{args.features_table}"
-        )
-        client = get_clickhouse_client()
-        if client is None:
-            raise SystemExit("[pipeline] Could not create ClickHouse client.")
-        features_all_df = load_features_all(
-            client=client,
-            database=args.features_database,
-            table=args.features_table,
-        )
+    print(
+        "[pipeline] Source: ClickHouse "
+        f"{args.features_database}.{args.features_table}"
+    )
+    client = get_clickhouse_client()
+    if client is None:
+        raise SystemExit("[pipeline] Could not create ClickHouse client.")
+    features_all_df = load_features_all(
+        client=client,
+        database=args.features_database,
+        table=args.features_table,
+    )
 
     features_df = create_risk_features(features_all_df)
 
