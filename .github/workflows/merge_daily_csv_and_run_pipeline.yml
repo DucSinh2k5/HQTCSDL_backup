@@ -31,6 +31,12 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Notify workflow started
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python notifications/telegram_alert.py --workflow merge_daily_csv_and_run_pipeline --phase start
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -59,6 +65,7 @@ jobs:
             data/clean/*.csv
             data/clean_log/*
             data/khaosatdata/*
+            data/pipeline_run_summary.json
             models/model4/models/*.pkl
             models/model5/models/*.pkl
             models/model4/output/**
@@ -76,6 +83,7 @@ jobs:
             data/clean \
             data/clean_log \
             data/khaosatdata \
+            data/pipeline_run_summary.json \
             models/model4/models \
             models/model5/models \
             models/model4/output \
@@ -88,3 +96,10 @@ jobs:
 
           git commit -m "Update merged stock data and model outputs" || echo "No changes to commit"
           git push
+
+      - name: Notify workflow finished
+        if: always()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python notifications/telegram_alert.py --workflow merge_daily_csv_and_run_pipeline --phase end --status "${{ job.status }}"

@@ -26,6 +26,12 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Notify workflow started
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python notifications/telegram_alert.py --workflow cao_dl --phase start
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -53,3 +59,10 @@ jobs:
           git add data/dirty/stock_*.csv
           git commit -m "Add stock CSV output" || echo "No changes to commit"
           git push
+
+      - name: Notify workflow finished
+        if: always()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python notifications/telegram_alert.py --workflow cao_dl --phase end --status "${{ job.status }}"
