@@ -7,7 +7,7 @@ import pandas as pd
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_DAILY_DIR = PROJECT_ROOT / "data"
+DEFAULT_DAILY_DIR = PROJECT_ROOT / "data" / "dirty"
 DEFAULT_DIRTY_CSV = PROJECT_ROOT / "data" / "dirty" / "Data_500_stocks_dirty.csv"
 DIRTY_COLUMNS = ["time", "open", "high", "low", "close", "volume", "symbol"]
 

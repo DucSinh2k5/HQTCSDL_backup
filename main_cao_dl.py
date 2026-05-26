@@ -1,7 +1,7 @@
 # Crawl dữ liệu 500 mã cổ phiếu
 # Chạy được trên GitHub Actions
 # Ngày lấy dữ liệu = ngày chạy workflow theo giờ Việt Nam - 1 ngày
-# Output CSV ví dụ: data/stock_17_5.csv nếu workflow chạy ngày 18/5 giờ Việt Nam
+# Output CSV ví dụ: data/dirty/stock_17_5.csv nếu workflow chạy ngày 18/5 giờ Việt Nam
 
 import os
 import time
@@ -24,8 +24,8 @@ from tenacity import RetryError
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")
 
-# Lưu tất cả file CSV trong folder data ngay trong repo GitHub.
-DATA_DIR = os.path.join(BASE_DIR, "data")
+# Lưu CSV cào hằng ngày trong data/dirty để pipeline merge vào dirty dataset.
+DATA_DIR = os.path.join(BASE_DIR, "data", "dirty")
 os.makedirs(DATA_DIR, exist_ok=True)
 
 # Ngày lấy dữ liệu = hôm nay theo giờ Việt Nam - 1 ngày.
@@ -42,7 +42,7 @@ START_DATE = TARGET_DATE
 END_DATE = TARGET_DATE
 
 # Tên file output theo định dạng stock_ngày_tháng.csv
-# Ví dụ TARGET_DATE = 2026-05-17 -> stock_17_5.csv
+# Ví dụ TARGET_DATE = 2026-05-17 -> data/dirty/stock_17_5.csv
 OUTPUT_FILENAME = f"stock_{TARGET_DATE_OBJ.day}_{TARGET_DATE_OBJ.month}.csv"
 OUTPUT_FILE = os.path.join(DATA_DIR, OUTPUT_FILENAME)
 
