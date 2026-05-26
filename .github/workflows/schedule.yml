@@ -6,16 +6,23 @@ on:
     # GitHub Actions dùng UTC, Việt Nam UTC+7 nên 15:00 VN = 08:00 UTC.
     - cron: "0 8 * * *"
 
-  # Cho phép bấm Run workflow để test thủ công khi cần.
   workflow_dispatch:
+    inputs:
+      target_date:
+        description: "Ngay can cao, dinh dang YYYY-MM-DD. Bo trong thi lay ngay hom qua theo gio VN."
+        required: false
+        type: string
 
 permissions:
+  actions: read
   contents: write
 
 jobs:
   run-task:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    env:
+      TARGET_DATE: ${{ github.event.inputs.target_date || '' }}
 
     steps:
       - name: Checkout code
@@ -49,16 +56,26 @@ jobs:
         with:
           name: stock-csv-files
           path: data/dirty/stock_*.csv
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 30
 
       - name: Commit CSV outputs to repo
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git add data/dirty/stock_*.csv
-          git commit -m "Add stock CSV output" || echo "No changes to commit"
-          git push
+
+          if compgen -G "data/dirty/stock_*.csv" > /dev/null; then
+            git add data/dirty/stock_*.csv
+          else
+            echo "No stock CSV files to commit"
+          fi
+
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Add stock CSV output"
+            git push
+          fi
 
       - name: Notify workflow finished
         if: always()
