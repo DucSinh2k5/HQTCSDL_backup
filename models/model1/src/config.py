@@ -13,19 +13,19 @@ CLICKHOUSE_DATABASE = "stock"
 CLICKHOUSE_TABLE = "features_all"
 CLICKHOUSE_SECURE = True
 
-MODEL_PATH = "models/price_forecasting_xgb.pkl"
+MODEL_PATH = PROJECT_ROOT / "models" / "model1" / "models" / "price_forecasting_xgb.pkl"
 
-METRICS_PATH = "reports/metrics.json"
-PREDICTION_PATH = "reports/predictions.csv"
-PREDICTION_ACCURACY_PATH = "reports/prediction_accuracy.csv"
-FEATURE_IMPORTANCE_PATH = "reports/feature_importance.csv"
-BACKTEST_PATH = "reports/backtest.csv"
-BACKTEST_METRICS_PATH = "reports/backtest_metrics.json"
-BACKTEST_SWEEP_PATH = "reports/backtest_sweep.csv"
-WALK_FORWARD_PREDICTION_PATH = "reports/walk_forward_predictions.csv"
-WALK_FORWARD_FOLD_METRICS_PATH = "reports/walk_forward_fold_metrics.csv"
-WALK_FORWARD_BACKTEST_PATH = "reports/walk_forward_backtest.csv"
-WALK_FORWARD_BACKTEST_METRICS_PATH = "reports/walk_forward_backtest_metrics.json"
+METRICS_PATH = PROJECT_ROOT / "reports" / "metrics.json"
+PREDICTION_PATH = PROJECT_ROOT / "reports" / "predictions.csv"
+PREDICTION_ACCURACY_PATH = PROJECT_ROOT / "reports" / "prediction_accuracy.csv"
+FEATURE_IMPORTANCE_PATH = PROJECT_ROOT / "reports" / "feature_importance.csv"
+BACKTEST_PATH = PROJECT_ROOT / "reports" / "backtest.csv"
+BACKTEST_METRICS_PATH = PROJECT_ROOT / "reports" / "backtest_metrics.json"
+BACKTEST_SWEEP_PATH = PROJECT_ROOT / "reports" / "backtest_sweep.csv"
+WALK_FORWARD_PREDICTION_PATH = PROJECT_ROOT / "reports" / "walk_forward_predictions.csv"
+WALK_FORWARD_FOLD_METRICS_PATH = PROJECT_ROOT / "reports" / "walk_forward_fold_metrics.csv"
+WALK_FORWARD_BACKTEST_PATH = PROJECT_ROOT / "reports" / "walk_forward_backtest.csv"
+WALK_FORWARD_BACKTEST_METRICS_PATH = PROJECT_ROOT / "reports" / "walk_forward_backtest_metrics.json"
 
 HORIZON = 5
 

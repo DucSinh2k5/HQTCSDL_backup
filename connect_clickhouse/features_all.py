@@ -1,4 +1,5 @@
 import argparse
+import gc
 from pathlib import Path
 
 import numpy as np
@@ -21,6 +22,7 @@ SYMBOL_ENCODING_TABLE = "symbol_sector_encoding"
 TARGET_DATABASE = "stock"
 TARGET_TABLE = "features_all"
 DEFAULT_EXPORT_CHUNKSIZE = 1_000
+DEFAULT_INSERT_CHUNKSIZE = 10_000
 
 FEATURES_ALL_COLUMNS = [
     "trading_date",
@@ -390,6 +392,27 @@ def order_features_all_columns(df: pd.DataFrame) -> pd.DataFrame:
     return output[FEATURES_ALL_COLUMNS]
 
 
+def upload_features_all_in_chunks(
+    client,
+    df: pd.DataFrame,
+    table: str,
+    chunksize: int = DEFAULT_INSERT_CHUNKSIZE,
+) -> None:
+    total_rows = len(df)
+    if total_rows == 0:
+        print(f"[clickhouse] No rows to upload to {table}.")
+        return
+
+    chunksize = max(1, int(chunksize))
+    for start in range(0, total_rows, chunksize):
+        end = min(start + chunksize, total_rows)
+        chunk = order_features_all_columns(df.iloc[start:end]).copy()
+        client.insert_df(table=table, df=chunk)
+        print(f"[clickhouse] Uploaded rows {start + 1:,}-{end:,}/{total_rows:,}")
+        del chunk
+        gc.collect()
+
+
 def write_features_all_csv(
     df: pd.DataFrame,
     output_path: Path,
@@ -466,6 +489,12 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_EXPORT_CHUNKSIZE,
         help="Rows per CSV export chunk.",
     )
+    parser.add_argument(
+        "--insert-chunksize",
+        type=int,
+        default=DEFAULT_INSERT_CHUNKSIZE,
+        help="Rows per ClickHouse insert chunk.",
+    )
     return parser.parse_args()
 
 
@@ -487,7 +516,12 @@ def main() -> None:
     df = prepare_features_all(features_df)
 
     create_features_all_table(client, database=TARGET_DATABASE)
-    client.insert_df(table=f"{TARGET_DATABASE}.{TARGET_TABLE}", df=df)
+    upload_features_all_in_chunks(
+        client=client,
+        df=df,
+        table=f"{TARGET_DATABASE}.{TARGET_TABLE}",
+        chunksize=args.insert_chunksize,
+    )
     print(f"Uploaded {len(df):,} rows to {TARGET_DATABASE}.{TARGET_TABLE}")
 
     if not args.skip_export:

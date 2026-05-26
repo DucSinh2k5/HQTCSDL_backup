@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import joblib
 import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
@@ -25,6 +26,7 @@ from .risk_features import FEATURE_COLUMNS
 DEFAULT_RISK_THRESHOLD = 0.6
 MODEL_DIR = Path(__file__).resolve().parent
 DEFAULT_METRICS_JSON = MODEL_DIR / "output_model5" / "risk_metrics.json"
+DEFAULT_MODEL_PATH = MODEL_DIR / "models" / "risk_alert_model.pkl"
 
 
 def _prepare_training_data(feature_df: pd.DataFrame):
@@ -278,6 +280,37 @@ def train_models(
     }
 
     return selected_model, predictions, report
+
+
+def save_model(
+    model,
+    metrics: dict[str, Any],
+    output_path: Path | str = DEFAULT_MODEL_PATH,
+):
+    if model is None:
+        print("[train] No model to save.")
+        return None
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(
+        {
+            "model": model,
+            "features": FEATURE_COLUMNS,
+            "selected_model": metrics.get("selected_model"),
+            "threshold": metrics.get("threshold", DEFAULT_RISK_THRESHOLD),
+            "target_type": "risk_drop_label",
+            "metrics": metrics,
+        },
+        output_path,
+    )
+    print(f"[train] Saved model PKL: {output_path}")
+    return output_path
+
+
+def load_saved_model(model_path: Path | str = DEFAULT_MODEL_PATH):
+    saved = joblib.load(model_path)
+    return saved["model"], saved.get("features", FEATURE_COLUMNS), saved
 
 
 def save_metrics_json(

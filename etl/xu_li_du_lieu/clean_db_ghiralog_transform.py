@@ -170,18 +170,44 @@ def log_dirty_artifacts(
     return dirty
 
 
-def restore_from_reference(dirty: pd.DataFrame, reference: pd.DataFrame) -> pd.DataFrame:
-    dirty_keys = dirty[KEY_COLUMNS].drop_duplicates()
-    restored = dirty_keys.merge(reference, on=KEY_COLUMNS, how="inner")
-    unmatched = dirty_keys.merge(
-        reference[KEY_COLUMNS],
+def restore_from_reference(
+    dirty: pd.DataFrame,
+    reference: pd.DataFrame,
+    stats: Dict[str, int],
+) -> pd.DataFrame:
+    dirty_unique = dirty.drop_duplicates(subset=KEY_COLUMNS, keep="last").copy()
+    reference_max_date = reference["date"].max()
+
+    merged = dirty_unique.merge(
+        reference,
         on=KEY_COLUMNS,
         how="left",
+        suffixes=("_dirty", "_reference"),
         indicator=True,
     )
-    unmatched = unmatched.loc[unmatched["_merge"] == "left_only", KEY_COLUMNS]
-    save_log_df(unmatched, "removed_keys_not_in_reference.csv")
-    return restored[OUTPUT_COLUMNS].sort_values(KEY_COLUMNS).reset_index(drop=True)
+
+    matched_reference_mask = merged["_merge"] == "both"
+    new_data_mask = (~matched_reference_mask) & (merged["date"] > reference_max_date)
+    removed_unmatched_mask = (~matched_reference_mask) & (~new_data_mask)
+
+    removed_unmatched = merged.loc[removed_unmatched_mask, KEY_COLUMNS]
+    save_log_df(removed_unmatched, "removed_keys_not_in_reference.csv")
+    stats["removed_keys_not_in_reference"] = int(len(removed_unmatched))
+
+    kept_new_keys = merged.loc[new_data_mask, KEY_COLUMNS]
+    save_log_df(kept_new_keys, "kept_new_keys_not_in_reference.csv")
+    stats["new_keys_not_in_reference_kept"] = int(len(kept_new_keys))
+
+    merged = merged.loc[matched_reference_mask | new_data_mask].copy()
+    output = merged[KEY_COLUMNS].copy()
+
+    for column in NUMERIC_COLUMNS:
+        output[column] = merged[f"{column}_reference"].where(
+            matched_reference_mask.loc[merged.index],
+            merged[f"{column}_dirty"],
+        )
+
+    return output[OUTPUT_COLUMNS].sort_values(KEY_COLUMNS).reset_index(drop=True)
 
 
 def filter_final_clean_rows(df: pd.DataFrame, stats: Dict[str, int]) -> pd.DataFrame:
@@ -254,7 +280,7 @@ def main() -> None:
     stats["valid_dirty_rows_after_symbol_date_filter"] = len(dirty)
     stats["valid_dirty_unique_keys"] = len(dirty[KEY_COLUMNS].drop_duplicates())
 
-    restored = restore_from_reference(dirty, reference)
+    restored = restore_from_reference(dirty, reference, stats)
     stats["rows_restored_before_final_rules"] = len(restored)
     final_clean = filter_final_clean_rows(restored, stats)
     output = format_output(final_clean)

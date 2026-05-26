@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 
 import clickhouse_connect
+import joblib
 import lightgbm as lgb
 import numpy as np
 import pandas as pd
@@ -21,6 +22,8 @@ load_dotenv()
 
 MODEL_DIR = Path(__file__).resolve().parent
 MODEL_OUTPUT = MODEL_DIR / "output"
+MODEL_SAVE_DIR = MODEL_DIR / "models"
+MODEL_PATH = MODEL_SAVE_DIR / "benchmark_outperformance_lgbm.pkl"
 CLICKHOUSE_DATABASE = "stock"
 CLICKHOUSE_TABLE = "features_all"
 HORIZON = 5
@@ -151,6 +154,28 @@ def train_model(train_df: pd.DataFrame):
     return model
 
 
+def save_model(model, model_path: Path | str = MODEL_PATH):
+    model_path = Path(model_path)
+    model_path.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(
+        {
+            "model": model,
+            "features": FEATURE_COLUMNS,
+            "horizon": HORIZON,
+            "target_type": "benchmark_outperformance",
+            "train_ratio": TRAIN_RATIO,
+        },
+        model_path,
+    )
+    print(f"[model4] Saved model: {model_path}")
+    return model_path
+
+
+def load_saved_model(model_path: Path | str = MODEL_PATH):
+    saved = joblib.load(model_path)
+    return saved["model"], saved.get("features", FEATURE_COLUMNS)
+
+
 def evaluate_model(model, test_df: pd.DataFrame):
     print("\n[model4] Evaluating model...")
     x_test = test_df[FEATURE_COLUMNS]
@@ -220,6 +245,7 @@ if __name__ == "__main__":
     df = load_features()
     train_df, test_df = time_split(df)
     model = train_model(train_df)
+    save_model(model)
     metrics, y_pred, y_prob = evaluate_model(model, test_df)
     save_results(model, metrics, test_df, y_pred, y_prob)
     print("\n[model4] Done.")

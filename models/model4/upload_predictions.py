@@ -16,7 +16,8 @@ load_dotenv()
 # ==================
 # CONFIG
 # ==================
-PREDICTIONS_CSV = Path("model4/output/benchmark_predictions.csv")
+MODEL_DIR = Path(__file__).resolve().parent
+PREDICTIONS_CSV = MODEL_DIR / "output" / "benchmark_predictions.csv"
 DATABASE        = "stock"
 TABLE           = "model4_benchmark_predictions"
 

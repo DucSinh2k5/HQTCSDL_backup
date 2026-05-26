@@ -23,7 +23,7 @@ from models.model5.save_risk_predictions import (
     save_predictions_csv,
     save_test_evaluation_csv,
 )
-from models.model5.train_risk_model import save_metrics_json, train_models
+from models.model5.train_risk_model import save_metrics_json, save_model, train_models
 
 
 DEFAULT_OUTPUT_DIR = MODEL_DIR / "output_model5"
@@ -92,11 +92,12 @@ def main():
         output_dir / "risk_features.csv",
     )
 
-    _, prediction_df, metrics = train_models(
+    model, prediction_df, metrics = train_models(
         features_df,
         train_ratio=args.train_ratio,
         threshold=args.threshold,
     )
+    model_path = save_model(model, metrics)
 
     predictions_path = save_predictions_csv(
         prediction_df,
@@ -121,6 +122,7 @@ def main():
     print(f"  Predictions: {predictions_path}")
     print(f"  Evaluation:  {evaluation_path}")
     print(f"  Metrics:     {metrics_path}")
+    print(f"  Model:       {model_path}")
     print(f"  Mart:        {mart_path}")
     print(f"  HIGH_RISK rows: {high_risk_count:,}/{len(prepared_predictions):,}")
 

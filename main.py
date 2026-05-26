@@ -10,6 +10,14 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 
 PIPELINE = [
 	(
+		"merge_01_17_to_dirty",
+		PROJECT_ROOT / "tmp_merge_01_17_to_dirty.py",
+	),
+	(
+		"merge_daily_csv_to_dirty",
+		PROJECT_ROOT / "ingestion" / "merge_daily_csv_to_dirty.py",
+	),
+	(
 		"survey_data",
 		PROJECT_ROOT / "etl" / "xu_li_du_lieu" / "kiemtradl_ghiralog_extract.py",
 	),
@@ -28,6 +36,21 @@ PIPELINE = [
 	(
 		"upload_features_all",
 		PROJECT_ROOT / "connect_clickhouse" / "features_all.py",
+	),
+	("train_model1", PROJECT_ROOT / "models" / "model1" / "main.py"),
+	("train_model2", PROJECT_ROOT / "models" / "model2" / "run_pipeline.py"),
+	(
+		"train_model2_1",
+		PROJECT_ROOT / "models" / "model2.1" / "train_xgboost.py",
+	),
+	("train_model3", PROJECT_ROOT / "models" / "model3" / "main.py"),
+	(
+		"train_model4",
+		PROJECT_ROOT / "models" / "model4" / "train_benchmark_model.py",
+	),
+	(
+		"upload_model4_outputs",
+		PROJECT_ROOT / "models" / "model4" / "upload_predictions.py",
 	),
 	("train_model5", PROJECT_ROOT / "models" / "model5" / "run_pipeline.py"),
 	(
