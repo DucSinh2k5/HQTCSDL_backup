@@ -4,21 +4,37 @@ import joblib
 from pathlib import Path
 from xgboost import XGBRegressor
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
-# from config1 import {
-#     LIGHTGBM_PARAMS,
-# }
+import clickhouse_connect
+CLICKHOUSE_HOST = "zmbwqe05t3.ap-southeast-1.aws.clickhouse.cloud"
+CLICKHOUSE_PORT = 8443
+CLICKHOUSE_USER = "default"
+CLICKHOUSE_PASSWORD = "BiHI92y_rbkgT"
+CLICKHOUSE_DATABASE = "stock"
+CLICKHOUSE_TABLE = "features_all"
+CLICKHOUSE_SECURE = True
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-RISK_FEATURES_CSV = (
-    PROJECT_ROOT / "models" / "model5" / "output_model5" / "risk_features.csv"
+client = clickhouse_connect.get_client(
+    host=CLICKHOUSE_HOST,
+    port=CLICKHOUSE_PORT,
+    username=CLICKHOUSE_USER,
+    password=CLICKHOUSE_PASSWORD,
+    database=CLICKHOUSE_DATABASE,
+    secure=CLICKHOUSE_SECURE
 )
 
-train = pd.read_csv(RISK_FEATURES_CSV)
+query = f"""
+SELECT *
+FROM {CLICKHOUSE_TABLE}
+"""
+
+train = client.query_df(query)
+
 target_col = "future_return_5d"
+
 train = train.replace([np.inf, -np.inf], np.nan)
 train = train.dropna(subset=[target_col]).reset_index(drop=True)
-# for i in train.columns:
-#     print(i)
+
 
 train["trading_date"] = pd.to_datetime(train["trading_date"], errors="coerce")
 train = train.dropna(subset=["trading_date"]).sort_values("trading_date").reset_index(drop=True)
@@ -54,18 +70,7 @@ for fold, (start_date, end_date) in enumerate(folds, start=1):
     medians = X_train_fold[numeric_cols].median()
     X_train_fold[numeric_cols] = X_train_fold[numeric_cols].fillna(medians)
     X_val_fold[numeric_cols] = X_val_fold[numeric_cols].fillna(medians)
-    # chuyen tham so duoi day thanh tham so cho xgboost: 
-    # "objective": "regression",
-    # "metric": "rmse",
-    # "boosting_type": "gbdt",
-    # "n_estimators": 700,
-    # "learning_rate": 0.03,
-    # "max_depth": 6,
-    # "num_leaves": 31,
-    # "subsample": 0.8,
-    # "colsample_bytree": 0.8,
-    # "random_state": 42,
-    # "verbose": -1
+
 
     model = XGBRegressor(
         objective="reg:squarederror",
