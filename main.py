@@ -13,10 +13,10 @@ VN_TZ = timezone(timedelta(hours=7))
 SUMMARY_PATH = PROJECT_ROOT / "data" / "pipeline_run_summary.json"
 
 PIPELINE = [
-	(
-		"merge_01_17_to_dirty",
-		PROJECT_ROOT / "tmp_merge_01_17_to_dirty.py",
-	),
+	# (
+	# 	"merge_01_17_to_dirty",
+	# 	PROJECT_ROOT / "tmp_merge_01_17_to_dirty.py",
+	# ),
 	(
 		"merge_daily_csv_to_dirty",
 		PROJECT_ROOT / "ingestion" / "merge_daily_csv_to_dirty.py",
