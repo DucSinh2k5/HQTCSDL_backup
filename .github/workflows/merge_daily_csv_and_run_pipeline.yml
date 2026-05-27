@@ -4,7 +4,6 @@ on:
   workflow_run:
     workflows: ["cao_dl"]
     types: [completed]
-
   workflow_dispatch:
     inputs:
       note:
@@ -83,7 +82,6 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-
           for path in \
             data/dirty/Data_500_stocks_dirty.csv \
             data/clean \
@@ -99,7 +97,6 @@ jobs:
               git add "$path"
             fi
           done
-
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
