@@ -82,26 +82,14 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          for path in \
-            data/dirty/Data_500_stocks_dirty.csv \
-            data/clean \
-            data/clean_log \
-            data/khaosatdata \
-            data/pipeline_run_summary.json \
-            models/model4/models \
-            models/model5/models \
-            models/model4/output \
-            models/model5/output_model5
-          do
-            if [ -e "$path" ]; then
-              # SỬA DÒNG NÀY: Thêm -f để ép Git add kể cả khi bị trùng trong .gitignore
-              git add -f "$path" 
-            fi
-          done
+          # CHI THÊM file tom tat nhe de bao ve git
+          if [ -f "data/pipeline_run_summary.json" ]; then
+            git add "data/pipeline_run_summary.json"
+          fi
           if git diff --cached --quiet; then
-            echo "No changes to commit"
+            echo "No summary changes to commit"
           else
-            git commit -m "Update merged stock data and model outputs"
+            git commit -m "Update daily pipeline execution summary [skip ci]"
             git push
           fi
 
