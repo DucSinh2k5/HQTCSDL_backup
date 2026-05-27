@@ -6,19 +6,19 @@ import os
 import numpy as np
 import pandas as pd
 
-# --- THÊM ĐOẠN ĐƯỜNG DẪN NÀY ĐỂ SỬA LỖI IMPORT ---
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = BASE_DIR.parent
 
-# Thêm cả thư mục gốc dự án và thư mục hiện tại vào hệ thống tìm kiếm module của Python
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-# Tiến hành import trực tiếp (an toàn 100% dù chạy từ main.py hay chạy độc lập)
+# Bây giờ lệnh import này sẽ chạy thành công 100% vì hàm đã tồn tại
 from clickhouse_client import get_clickhouse_client
-# -------------------------------------------------
+
+# Ở đoạn code phía dưới của file, chỗ nào cần dùng client thì gọi hàm:
+# client = get_clickhouse_client()
 
 OUTPUT_CSV = PROJECT_DIR / "data" / "clean" / "features_all.csv"
 SYMBOL_ENCODING_CSV = PROJECT_DIR / "data" / "clean" / "symbol_sector_encoding.csv"
