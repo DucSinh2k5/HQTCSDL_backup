@@ -18,11 +18,18 @@ matplotlib.rcParams['font.family'] = 'DejaVu Sans'
 # ==================
 # CONFIG
 # ==================
-OUTPUT_DIR      = Path("model4/output")
+# Tự động định vị thư mục chứa chính file visualize_results.py này
+BASE_DIR        = Path(__file__).resolve().parent
+
+# Đảm bảo đường dẫn chính xác tuyệt đối từ thư mục model4
+OUTPUT_DIR      = BASE_DIR / "output"
 PREDICTIONS_CSV = OUTPUT_DIR / "benchmark_predictions.csv"
 IMPORTANCE_CSV  = OUTPUT_DIR / "feature_importance.csv"
 METRICS_JSON    = OUTPUT_DIR / "benchmark_metrics.json"
 CHARTS_DIR      = OUTPUT_DIR / "charts"
+
+# Tự động tạo tất cả các thư mục nếu chưa tồn tại để tránh lỗi ghi file
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 CHARTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # ==================
