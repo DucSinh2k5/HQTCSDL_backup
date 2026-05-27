@@ -22,10 +22,10 @@ if CLEAN_PRICE_CSV is None:
     raise FileNotFoundError(
         "Could not find a clean price CSV. Tried:\n" + candidate_list
     )
-
+clickhouse_port_env = os.getenv("CLICKHOUSE_PORT")
 client = clickhouse_connect.get_client(
     host=os.getenv("CLICKHOUSE_HOST"),
-    port=int(os.getenv("CLICKHOUSE_PORT", "8443")),
+    port = int(clickhouse_port_env) if clickhouse_port_env else 8443,
     username=os.getenv("CLICKHOUSE_USER"),
     password=os.getenv("CLICKHOUSE_PASSWORD"),
     database=os.getenv("CLICKHOUSE_DATABASE", "default"),
