@@ -94,7 +94,8 @@ jobs:
             models/model5/output_model5
           do
             if [ -e "$path" ]; then
-              git add "$path"
+              # SỬA DÒNG NÀY: Thêm -f để ép Git add kể cả khi bị trùng trong .gitignore
+              git add -f "$path" 
             fi
           done
           if git diff --cached --quiet; then
