@@ -1,10 +1,9 @@
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-
 DATA_PATH = PROJECT_ROOT / "data" / "clean" / "features_all.csv"
 
+# --- CẤU HÌNH CLICKHOUSE ---
 CLICKHOUSE_HOST = "zmbwqe05t3.ap-southeast-1.aws.clickhouse.cloud"
 CLICKHOUSE_PORT = 8443
 CLICKHOUSE_USER = "default"
@@ -13,19 +12,28 @@ CLICKHOUSE_DATABASE = "stock"
 CLICKHOUSE_TABLE = "features_all"
 CLICKHOUSE_SECURE = True
 
-MODEL_PATH = r"F:\Documents\CODE\Python\cv_project\stock\HQTCSDL_stocks\models\model3\models/trading_signal_xgb_classifier.pkl"
 
-METRICS_PATH = r"F:\Documents\CODE\Python\cv_project\stock\HQTCSDL_stocks\models\model3\reports/metrics.json"
-PREDICTION_PATH = r"F:\Documents\CODE\Python\cv_project\stock\HQTCSDL_stocks\models\model3\reports/predictions.csv"
-PREDICTION_ACCURACY_PATH = r"F:\Documents\CODE\Python\cv_project\stock\HQTCSDL_stocks\models\model3\reports/prediction_accuracy.csv"
-FEATURE_IMPORTANCE_PATH = r"F:\Documents\CODE\Python\cv_project\stock\HQTCSDL_stocks\models\model3\reports/feature_importance.csv"
-BACKTEST_PATH = r"F:\Documents\CODE\Python\cv_project\stock\HQTCSDL_stocks\models\model3\reports/backtest.csv"
-BACKTEST_METRICS_PATH = r"F:\Documents\CODE\Python\cv_project\stock\HQTCSDL_stocks\models\model3\reports/backtest_metrics.json"
-BACKTEST_SWEEP_PATH = r"F:\Documents\CODE\Python\cv_project\stock\HQTCSDL_stocks\models\model3\reports/backtest_sweep.csv"
-WALK_FORWARD_PREDICTION_PATH = r"F:\Documents\CODE\Python\cv_project\stock\HQTCSDL_stocks\models\model3\reports/walk_forward_predictions.csv"
-WALK_FORWARD_FOLD_METRICS_PATH = r"F:\Documents\CODE\Python\cv_project\stock\HQTCSDL_stocks\models\model3\reports/walk_forward_fold_metrics.csv"
-WALK_FORWARD_BACKTEST_PATH = r"F:\Documents\CODE\Python\cv_project\stock\HQTCSDL_stocks\models\model3\reports/walk_forward_backtest.csv"
-WALK_FORWARD_BACKTEST_METRICS_PATH = r"F:\Documents\CODE\Python\cv_project\stock\HQTCSDL_stocks\models\model3\reports/walk_forward_backtest_metrics.json"
+MODEL3_DIR = PROJECT_ROOT / "models" / "model3"
+MODEL_OUTPUT_DIR = MODEL3_DIR / "models"
+REPORTS_DIR = MODEL3_DIR / "reports"
+
+
+MODEL_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+
+# Định nghĩa lại các file theo đường dẫn động (Dynamic Path)
+MODEL_PATH = str(MODEL_OUTPUT_DIR / "trading_signal_xgb_classifier.pkl")
+METRICS_PATH = str(REPORTS_DIR / "metrics.json")
+PREDICTION_PATH = str(REPORTS_DIR / "predictions.csv")
+PREDICTION_ACCURACY_PATH = str(REPORTS_DIR / "prediction_accuracy.csv")
+FEATURE_IMPORTANCE_PATH = str(REPORTS_DIR / "feature_importance.csv")
+BACKTEST_PATH = str(REPORTS_DIR / "backtest.csv")
+BACKTEST_METRICS_PATH = str(REPORTS_DIR / "backtest_metrics.json")
+BACKTEST_SWEEP_PATH = str(REPORTS_DIR / "backtest_sweep.csv")
+WALK_FORWARD_PREDICTION_PATH = str(REPORTS_DIR / "walk_forward_predictions.csv")
+WALK_FORWARD_FOLD_METRICS_PATH = str(REPORTS_DIR / "walk_forward_fold_metrics.csv")
+WALK_FORWARD_BACKTEST_PATH = str(REPORTS_DIR / "walk_forward_backtest.csv")
+WALK_FORWARD_BACKTEST_METRICS_PATH = str(REPORTS_DIR / "walk_forward_backtest_metrics.json")
 
 
 HORIZON = 5
