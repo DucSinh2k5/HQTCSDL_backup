@@ -3,10 +3,10 @@ from pathlib import Path
 # =========================
 # CLICKHOUSE CONFIG
 # =========================
-CLICKHOUSE_HOST = "zmbwqe05t3.ap-southeast-1.aws.clickhouse.cloud"
+CLICKHOUSE_HOST = "cvzq3t560s.ap-southeast-1.aws.clickhouse.cloud"
 CLICKHOUSE_PORT = 8443
 CLICKHOUSE_USER = "default"
-CLICKHOUSE_PASSWORD = "BiHI92y_rbkgT"
+CLICKHOUSE_PASSWORD = "ze_1268BkMgWP"
 CLICKHOUSE_DATABASE = "stock"
 CLICKHOUSE_TABLE = "features_all"
 CLICKHOUSE_SECURE = True
