@@ -1,225 +1,167 @@
-import json
-import os
-from pathlib import Path
+# ==============================================
+# MODULE 4 — BENCHMARK OUTPERFORMANCE MODEL
+# File: train_benchmark_model.py
+# Mục đích: Train LightGBM Classifier
+#           Đánh giá mô hình
+# ==============================================
 
-import clickhouse_connect
-import joblib
-import lightgbm as lgb
+import json
 import numpy as np
 import pandas as pd
-from dotenv import load_dotenv
+import lightgbm as lgb
+from pathlib import Path
 from sklearn.metrics import (
     accuracy_score,
-    confusion_matrix,
-    f1_score,
     precision_score,
     recall_score,
+    f1_score,
     roc_auc_score,
+    confusion_matrix,
 )
 
-
-load_dotenv()
-
-MODEL_DIR = Path(__file__).resolve().parent
-MODEL_OUTPUT = MODEL_DIR / "output"
-MODEL_SAVE_DIR = MODEL_DIR / "models"
-MODEL_PATH = MODEL_SAVE_DIR / "benchmark_outperformance_lgbm.pkl"
-CLICKHOUSE_DATABASE = "stock"
-CLICKHOUSE_TABLE = "features_all"
-HORIZON = 5
-TRAIN_RATIO = 0.8
+# ==================
+# CONFIG
+# ==================
+FEATURES_CSV  = Path("model4/output/benchmark_features.csv")
+MODEL_OUTPUT  = Path("model4/output")
+TRAIN_RATIO   = 0.8  # 80% train, 20% test
 
 FEATURE_COLUMNS = [
-    "encode_sector",
-    "return_1d",
-    "return_3d",
-    "return_5d",
-    "return_10d",
-    "return_20d",
-    "ma_5",
-    "ma_20",
-    "ma_50",
-    "price_vs_ma20",
-    "ma5_vs_ma20",
-    "volatility_5d",
-    "volatility_20d",
-    "volatility_change",
-    "rolling_max_20d",
-    "drawdown_20d",
-    "volume_ma_5",
-    "volume_ma_20",
-    "volume_ratio_5_20",
-    "volume_change_1d",
-    "daily_range",
-    "body_ratio",
-    "close_position",
+    "return_1d", "return_3d", "return_5d", "return_10d", "return_20d",
+    "ma_5", "ma_20", "ma_50",
+    "price_vs_ma20", "ma5_vs_ma20",
+    "volatility_5d", "volatility_20d", "volatility_change",
+    "rolling_max_20d", "drawdown_20d",
+    "volume_ma_5", "volume_ma_20", "volume_ratio_5_20", "volume_change_1d",
+    "daily_range", "body_ratio", "close_position",
 ]
 
-
-def quote_identifier(name: str) -> str:
-    return "`" + str(name).replace("`", "``") + "`"
-
-
-def get_client():
-    return clickhouse_connect.get_client(
-        host=os.getenv("CLICKHOUSE_HOST"),
-        port=int(os.getenv("CLICKHOUSE_PORT", "8443")),
-        username=os.getenv("CLICKHOUSE_USER"),
-        password=os.getenv("CLICKHOUSE_PASSWORD"),
-        database=os.getenv("CLICKHOUSE_DATABASE", "stock"),
-        secure=os.getenv("CLICKHOUSE_SECURE", "true").lower() == "true",
-    )
-
-
-def create_benchmark_labels(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.sort_values(["symbol", "trading_date"]).reset_index(drop=True)
-    group = df.groupby("symbol", sort=False)
-    df["future_close"] = group["close"].shift(-HORIZON)
-    df["future_return"] = df["future_close"] / df["close"] - 1
-
-    benchmark = (
-        df.groupby("trading_date")["future_return"]
-        .mean()
-        .rename("benchmark_return")
-        .reset_index()
-    )
-    df = df.merge(benchmark, on="trading_date", how="left")
-    df["label"] = (df["future_return"] > df["benchmark_return"]).astype(int)
-    return df.replace([np.inf, -np.inf], np.nan)
-
-
+# ==================
+# 1. ĐỌC DỮ LIỆU
+# ==================
 def load_features() -> pd.DataFrame:
-    print("[model4] Loading features from ClickHouse stock.features_all...")
-    query = f"""
-        SELECT *
-        FROM {quote_identifier(CLICKHOUSE_DATABASE)}.{quote_identifier(CLICKHOUSE_TABLE)}
-        ORDER BY symbol, trading_date
-    """
-    df = get_client().query_df(query)
-    df.columns = [str(column).strip() for column in df.columns]
-
-    required_columns = set(FEATURE_COLUMNS + ["trading_date", "symbol", "close"])
-    missing_columns = sorted(required_columns - set(df.columns))
-    if missing_columns:
-        raise ValueError(f"Missing columns from ClickHouse features_all: {missing_columns}")
-
-    df["symbol"] = df["symbol"].astype(str).str.strip().str.upper()
-    df["trading_date"] = pd.to_datetime(df["trading_date"], errors="coerce")
-    for column in FEATURE_COLUMNS + ["close"]:
-        df[column] = pd.to_numeric(df[column], errors="coerce")
-
-    df = create_benchmark_labels(df)
-    df = df.dropna(subset=FEATURE_COLUMNS + ["label", "trading_date"])
+    print("[model4] Đọc features từ CSV...")
+    df = pd.read_csv(FEATURES_CSV)
+    df["trading_date"] = pd.to_datetime(df["trading_date"])
+    df = df.dropna(subset=FEATURE_COLUMNS + ["label"])
     df = df.sort_values(["trading_date", "symbol"]).reset_index(drop=True)
-    print(f"[model4] Loaded trainable rows: {len(df):,}")
+    print(f"[model4] Đọc xong: {len(df):,} dòng")
     return df
 
-
+# ==================
+# 2. TRAIN/TEST SPLIT
+# ==================
 def time_split(df: pd.DataFrame):
+    """
+    Chia train/test theo thời gian
+    KHÔNG xáo trộn ngẫu nhiên!
+    """
+    # Lấy danh sách ngày unique, sắp xếp từ cũ → mới
     unique_dates = sorted(df["trading_date"].unique())
-    cutoff_idx = int(len(unique_dates) * TRAIN_RATIO)
-    cutoff_date = unique_dates[cutoff_idx]
+    cutoff_idx   = int(len(unique_dates) * TRAIN_RATIO)
+    cutoff_date  = unique_dates[cutoff_idx]
 
     train_df = df[df["trading_date"] < cutoff_date].copy()
-    test_df = df[df["trading_date"] >= cutoff_date].copy()
+    test_df  = df[df["trading_date"] >= cutoff_date].copy()
 
-    print(
-        f"[model4] Train: {len(train_df):,} rows "
-        f"({train_df['trading_date'].min().date()} -> "
-        f"{train_df['trading_date'].max().date()})"
-    )
-    print(
-        f"[model4] Test:  {len(test_df):,} rows "
-        f"({test_df['trading_date'].min().date()} -> "
-        f"{test_df['trading_date'].max().date()})"
-    )
+    print(f"[model4] Train: {len(train_df):,} dòng "
+          f"({train_df['trading_date'].min().date()} "
+          f"→ {train_df['trading_date'].max().date()})")
+    print(f"[model4] Test:  {len(test_df):,} dòng "
+          f"({test_df['trading_date'].min().date()} "
+          f"→ {test_df['trading_date'].max().date()})")
     print(f"[model4] Cutoff date: {pd.Timestamp(cutoff_date).date()}")
+
     return train_df, test_df
 
-
+# ==================
+# 3. TRAIN LIGHTGBM
+# ==================
 def train_model(train_df: pd.DataFrame):
-    print("\n[model4] Training LightGBM...")
+    """Train LightGBM Classifier"""
+    print("\n[model4] Bắt đầu train LightGBM...")
+
+    X_train = train_df[FEATURE_COLUMNS]
+    y_train = train_df["label"]
+    #SỬA
+    # Khởi tạo mô hình LightGBM
     model = lgb.LGBMClassifier(
-        n_estimators=300,
-        max_depth=4,
-        learning_rate=0.05,
-        subsample=0.9,
-        colsample_bytree=0.9,
-        random_state=42,
-        n_jobs=-1,
-        verbose=-1,
+        n_estimators=500,      # số cây
+        max_depth=6,           # độ sâu tối đa mỗi cây
+        learning_rate=0.03,    # tốc độ học
+        subsample=0.8,         # tỷ lệ dữ liệu dùng mỗi cây
+        colsample_bytree=0.8,  # tỷ lệ features dùng mỗi cây
+        min_child_samples=50,  # thêm mới: tránh overfit
+        reg_alpha=0.1,         # thêm mới: L1 regularization
+        reg_lambda=0.1,         ## thêm mới: L2 regularization
+        random_state=42,       # seed cố định → kết quả tái tạo được
+        n_jobs=-1,             # dùng toàn bộ CPU
+        verbose=-1,            # tắt log dài dòng
     )
-    model.fit(train_df[FEATURE_COLUMNS], train_df["label"])
-    print("[model4] Training done.")
+    #SỬA
+    model.fit(X_train, y_train)
+    print("[model4] Train xong!")
     return model
 
-
-def save_model(model, model_path: Path | str = MODEL_PATH):
-    model_path = Path(model_path)
-    model_path.parent.mkdir(parents=True, exist_ok=True)
-    joblib.dump(
-        {
-            "model": model,
-            "features": FEATURE_COLUMNS,
-            "horizon": HORIZON,
-            "target_type": "benchmark_outperformance",
-            "train_ratio": TRAIN_RATIO,
-        },
-        model_path,
-    )
-    print(f"[model4] Saved model: {model_path}")
-    return model_path
-
-
-def load_saved_model(model_path: Path | str = MODEL_PATH):
-    saved = joblib.load(model_path)
-    return saved["model"], saved.get("features", FEATURE_COLUMNS)
-
-
+# ==================
+# 4. ĐÁNH GIÁ
+# ==================
 def evaluate_model(model, test_df: pd.DataFrame):
-    print("\n[model4] Evaluating model...")
-    x_test = test_df[FEATURE_COLUMNS]
-    y_test = test_df["label"]
-    y_pred = model.predict(x_test)
-    y_prob = model.predict_proba(x_test)[:, 1]
+    """Đánh giá mô hình trên tập test"""
+    print("\n[model4] Đánh giá mô hình...")
 
+    X_test = test_df[FEATURE_COLUMNS]
+    y_test = test_df["label"]
+
+    # Dự đoán
+    y_pred      = model.predict(X_test)
+    y_prob      = model.predict_proba(X_test)[:, 1]
+
+    # Tính các metrics
     metrics = {
-        "accuracy": float(accuracy_score(y_test, y_pred)),
+        "accuracy":  float(accuracy_score(y_test, y_pred)),
         "precision": float(precision_score(y_test, y_pred, zero_division=0)),
-        "recall": float(recall_score(y_test, y_pred, zero_division=0)),
-        "f1": float(f1_score(y_test, y_pred, zero_division=0)),
-        "roc_auc": float(roc_auc_score(y_test, y_prob)),
+        "recall":    float(recall_score(y_test, y_pred, zero_division=0)),
+        "f1":        float(f1_score(y_test, y_pred, zero_division=0)),
+        "roc_auc":   float(roc_auc_score(y_test, y_prob)),
         "confusion_matrix": confusion_matrix(y_test, y_pred).tolist(),
         "train_ratio": TRAIN_RATIO,
         "test_rows": len(test_df),
         "feature_columns": FEATURE_COLUMNS,
     }
 
-    print("\n" + "=" * 40)
-    print("  MODEL4 EVALUATION")
-    print("=" * 40)
+    # In kết quả
+    print(f"\n{'='*40}")
+    print(f"  KẾT QUẢ ĐÁNH GIÁ MODEL4")
+    print(f"{'='*40}")
     print(f"  Accuracy:  {metrics['accuracy']:.4f}")
     print(f"  Precision: {metrics['precision']:.4f}")
     print(f"  Recall:    {metrics['recall']:.4f}")
     print(f"  F1-score:  {metrics['f1']:.4f}")
     print(f"  ROC-AUC:   {metrics['roc_auc']:.4f}")
-    print(f"  Confusion Matrix: {metrics['confusion_matrix']}")
-    print("=" * 40 + "\n")
+    print(f"  Confusion Matrix:")
+    print(f"  {metrics['confusion_matrix']}")
+    print(f"{'='*40}\n")
+
     return metrics, y_pred, y_prob
 
-
+# ==================
+# 5. LƯU KẾT QUẢ
+# ==================
 def save_results(model, metrics, test_df, y_pred, y_prob):
+    """Lưu metrics và kết quả dự đoán"""
     MODEL_OUTPUT.mkdir(parents=True, exist_ok=True)
 
+    # Lưu metrics ra JSON
     metrics_path = MODEL_OUTPUT / "benchmark_metrics.json"
-    metrics_path.write_text(
-        json.dumps(metrics, indent=2, ensure_ascii=False),
-        encoding="utf-8",
-    )
-    print(f"[model4] Saved metrics: {metrics_path}")
+    with open(metrics_path, "w", encoding="utf-8") as f:
+        json.dump(metrics, f, indent=2, ensure_ascii=False)
+    print(f"[model4] Đã lưu metrics: {metrics_path}")
 
-    predictions = test_df[["symbol", "trading_date", "close", "label"]].copy()
-    predictions["predicted_label"] = y_pred
+    # Lưu kết quả dự đoán ra CSV
+    predictions = test_df[["symbol", "trading_date",
+                            "close", "label"]].copy()
+    predictions["predicted_label"]    = y_pred
     predictions["outperform_probability"] = y_prob
     predictions["prediction_correct"] = (
         predictions["label"] == predictions["predicted_label"]
@@ -227,25 +169,37 @@ def save_results(model, metrics, test_df, y_pred, y_prob):
 
     pred_path = MODEL_OUTPUT / "benchmark_predictions.csv"
     predictions.to_csv(pred_path, index=False)
-    print(f"[model4] Saved predictions: {pred_path}")
+    print(f"[model4] Đã lưu predictions: {pred_path}")
 
-    importance = pd.DataFrame(
-        {
-            "feature": FEATURE_COLUMNS,
-            "importance": model.feature_importances_,
-        }
-    ).sort_values("importance", ascending=False)
+    # Lưu feature importance
+    importance = pd.DataFrame({
+        "feature":   FEATURE_COLUMNS,
+        "importance": model.feature_importances_,
+    }).sort_values("importance", ascending=False)
+
     importance_path = MODEL_OUTPUT / "feature_importance.csv"
     importance.to_csv(importance_path, index=False)
-    print(f"[model4] Saved feature importance: {importance_path}")
+    print(f"[model4] Đã lưu feature importance: {importance_path}")
+
     return pred_path
 
-
+# ==================
+# MAIN
+# ==================
 if __name__ == "__main__":
+    # Bước 1: Đọc features
     df = load_features()
+
+    # Bước 2: Chia train/test theo thời gian
     train_df, test_df = time_split(df)
+
+    # Bước 3: Train LightGBM
     model = train_model(train_df)
-    save_model(model)
+
+    # Bước 4: Đánh giá
     metrics, y_pred, y_prob = evaluate_model(model, test_df)
+
+    # Bước 5: Lưu kết quả
     save_results(model, metrics, test_df, y_pred, y_prob)
-    print("\n[model4] Done.")
+
+    print("\n[model4] HOÀN THÀNH! ✅")
