@@ -2,11 +2,16 @@
 
 Model 3 phan loai tin hieu BUY/HOLD/SELL dua tren future return bang XGBoost Classifier.
 
+Nguon du lieu:
+
+- ClickHouse Cloud: `stock.features_all`
+- Can set `CLICKHOUSE_PASSWORD` trong terminal/session truoc khi chay.
+
 Mac dinh:
 
-- SELL: future return <= -1%
-- HOLD: -1% < future return < 1%
-- BUY: future return >= 1%
+- SELL: future return <= -2.5%
+- HOLD: -2.5% < future return < 2.5%
+- BUY: future return >= 2.5%
 
 Chay train va tao report:
 

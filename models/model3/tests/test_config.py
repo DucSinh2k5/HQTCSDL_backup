@@ -1,21 +1,19 @@
 import unittest
 
-import pandas as pd
-
-from src.config import DATA_PATH, FEATURES
+from src.config import FEATURES
 
 
 class ConfigFeatureTests(unittest.TestCase):
-    def test_configured_features_exist_in_raw_dataset(self):
-        columns = set(pd.read_csv(DATA_PATH, nrows=0).columns.str.strip())
-
-        missing_features = [feature for feature in FEATURES if feature not in columns]
-
-        self.assertEqual([], missing_features)
-
     def test_backtest_config_is_available(self):
         from src import config
 
+        self.assertEqual(
+            "cvzq3t560s.ap-southeast-1.aws.clickhouse.cloud",
+            config.CLICKHOUSE_HOST,
+        )
+        self.assertEqual("stock", config.CLICKHOUSE_DATABASE)
+        self.assertEqual("features_all", config.CLICKHOUSE_FEATURES_TABLE)
+        self.assertGreater(len(FEATURES), 0)
         self.assertEqual(5, config.HORIZON)
         self.assertEqual("reports/backtest.csv", config.BACKTEST_PATH)
         self.assertEqual("reports/backtest_metrics.json", config.BACKTEST_METRICS_PATH)

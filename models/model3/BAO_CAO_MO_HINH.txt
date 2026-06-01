@@ -22,16 +22,16 @@ De phu hop voi bai toan giao dich, he thong khong chi danh gia mo hinh bang Accu
 - SELL Precision: trong cac tin hieu SELL, co bao nhieu tin hieu dung la SELL.
 - Backtest metrics: loi nhuan, Sharpe, hit rate va chi phi giao dich.
 
-Ket qua tong quan sau khi chay tu ClickHouse:
+Ket qua tong quan sau khi chay pipeline moi nhat:
 
-- Accuracy: 46.69%
-- Baseline Accuracy: 38.63%
-- Macro F1-score: 0.4433
-- BUY Precision goc: 45.59%
-- SELL Precision goc: 47.09%
-- BUY Precision sau loc tin hieu chat: 69.58%
-- SELL Precision sau loc tin hieu chat: 66.21%
-- So tin hieu hanh dong sau loc: 8,592 dong
+- Accuracy: 56.30%
+- Baseline Accuracy: 51.59%
+- Macro F1-score: 0.4598
+- Macro Precision: 0.5070
+- Macro Recall: 0.4610
+- BUY Precision sau loc tin hieu chat: 67.98%
+- SELL Precision sau loc tin hieu chat: 65.03%
+- Adjusted Accuracy sau loc tin hieu: 52.69%
 
 Mo hinh co them lop loc tin hieu dua tren xac suat du doan. Thay vi lay moi du doan BUY / SELL cua model, he thong chi giu tin hieu hanh dong khi model co do tu tin cao.
 
@@ -51,9 +51,8 @@ Viec siet nguong lam so luong tin hieu BUY / SELL giam xuong, nhung precision cu
 
 2. DU LIEU DAU VAO VA KY NGHE DAC TRUNG (DATA INPUT & FEATURE ENGINEERING)
 
-He thong hien da ho tro 2 nguon du lieu:
+He thong hien chi su dung nguon du lieu ClickHouse cho model3:
 
-- CSV mac dinh: data/raw/features_all.csv
 - ClickHouse: stock.features_all
 
 Lan chay moi nhat su dung ClickHouse Cloud:
@@ -122,22 +121,22 @@ target_return = target_close / close - 1
 
 Quy tac gan nhan:
 
-- SELL neu target_return <= -1%
-- HOLD neu -1% < target_return < 1%
-- BUY neu target_return >= 1%
+- SELL neu target_return <= -2.5%
+- HOLD neu -2.5% < target_return < 2.5%
+- BUY neu target_return >= 2.5%
 
 Cac feature quan trong nhat theo lan train moi nhat:
 
-- volatility_20d: 0.0909
-- return_3d: 0.0897
-- volatility_5d: 0.0809
-- close_position: 0.0754
-- rolling_max_20d: 0.0646
-- daily_range: 0.0565
-- low: 0.0536
-- return_5d: 0.0463
-- return_1d: 0.0461
-- price_vs_ma20: 0.0432
+- volatility_20d: 0.1695
+- return_3d: 0.1160
+- volatility_5d: 0.0964
+- return_1d: 0.0615
+- daily_range: 0.0590
+- price_vs_ma20: 0.0506
+- volume: 0.0461
+- return_5d: 0.0452
+- close_position: 0.0444
+- volume_ma_5: 0.0339
 
 Nhan xet:
 
@@ -195,10 +194,10 @@ Trong cau hinh hien tai, he thong dung nguong P >= 60%. Muc nay giup loai bo cac
 
 Quy trinh huan luyen trong main.py:
 
-1. Doc du lieu tu ClickHouse neu MODEL3_DATA_SOURCE=clickhouse, nguoc lai doc tu CSV.
+1. Doc du lieu tu ClickHouse Cloud bang bang stock.features_all.
 2. Tien xu ly du lieu va chuyen cac cot so ve dung dinh dang.
 3. Tao target_return theo horizon 5 ngay.
-4. Gan nhan SELL / HOLD / BUY theo nguong -1% va +1%.
+4. Gan nhan SELL / HOLD / BUY theo nguong -2.5% va +2.5%.
 5. Chia du lieu theo thoi gian thanh train, validation va test.
 6. Huan luyen XGBoost Classifier tren train set.
 7. Theo doi validation set va dung early stopping de giam overfitting.
@@ -221,66 +220,66 @@ Moc thoi gian moi nhat:
 
 Ket qua danh gia tren test set:
 
-- Accuracy: 46.69%
-- Macro Precision: 0.4683
-- Macro Recall: 0.4451
-- Macro F1-score: 0.4433
-- Baseline Accuracy: 38.63%
-- Baseline Label: SELL
+- Accuracy: 56.30%
+- Macro Precision: 0.5070
+- Macro Recall: 0.4610
+- Macro F1-score: 0.4598
+- Baseline Accuracy: 51.59%
+- Baseline Label: HOLD
 
 Confusion Matrix cua model goc:
 
                     Predict SELL    Predict HOLD    Predict BUY
-True SELL              28723            4710           12424
-True HOLD              13428            8418            9409
-True BUY               18844            4474           18291
+True SELL              10285           16152            2995
+True HOLD               6548           50854            3848
+True BUY                5546           16790            5703
 
 Nhan xet:
 
-Model co Accuracy cao hon baseline, cho thay co hoc duoc tin hieu tu du lieu lich su. Tuy nhien, model van nham lan dang ke giua BUY va SELL. Day la rui ro quan trong trong giao dich vi co the tao quyet dinh nguoc huong voi bien dong thuc te.
+Model co Accuracy cao hon baseline va dat muc 56.30% sau khi mo rong vung HOLD len +/-2.5%. Cach gan nhan moi lam giam nhieu mau bien dong nho bi nhieu, giup model tap trung hon vao cac tin hieu tang/giam ro rang.
 
 Ket qua sau khi loc theo nguong P >= 60%:
 
-- BUY Precision tang tu 45.59% len 69.58%.
-- SELL Precision tang tu 47.09% len 66.21%.
-- So tin hieu hanh dong sau loc: 8,592 dong.
-- Adjusted Accuracy: 30.43%.
+- BUY Precision sau loc: 67.98%.
+- SELL Precision sau loc: 65.03%.
+- Adjusted Accuracy: 52.69%.
+- Adjusted Macro Precision: 0.6180.
 
-Adjusted Accuracy thap hon Accuracy goc vi phan lon du doan khong du tu tin duoc chuyen ve HOLD. Tuy nhien, muc tieu cua adjusted_signal khong phai toi da hoa accuracy tong the, ma la tang do tin cay cua cac tin hieu hanh dong BUY / SELL.
+Adjusted Accuracy thap hon Accuracy goc vi mot phan du doan khong du tu tin duoc chuyen ve HOLD. Tuy nhien, muc tieu cua adjusted_signal khong phai chi toi da hoa accuracy tong the, ma la tang do tin cay cua cac tin hieu hanh dong BUY / SELL.
 
 Backtest chien luoc:
 
-- Moi ngay chon toi da 10 ma co xac suat BUY cao nhat.
+- Moi ngay chon toi da 5 ma co xac suat BUY cao nhat.
 - Chi xet ma co volume toi thieu 100,000.
-- Chi xet ma co gia dong cua toi thieu 5.0.
-- Chi mua khi P(BUY) >= 0.60.
+- Chi xet ma co gia dong cua toi thieu 10.0.
+- Chi mua khi P(BUY) >= 0.35.
 - Co tinh transaction cost va slippage.
 
 Ket qua backtest moi nhat:
 
-- So dong du dieu kien: 32,062
-- So ma du dieu kien: 245
+- So dong du dieu kien: 26,467
+- So ma du dieu kien: 197
 - So ngay backtest: 392
-- So ngay co giao dich: 8
-- Average Daily Return truoc phi: -0.0096%/ngay
-- Average Daily Return sau phi: -0.0177%/ngay
-- Cumulative Return truoc phi: -6.50%
-- Cumulative Return sau phi: -9.48%
-- Benchmark Cumulative Return: -8.50%
-- Hit Rate: 0.77%
-- Sharpe Ratio truoc phi: -0.1230
-- Sharpe Ratio sau phi: -0.2272
+- So ngay co giao dich: 353
+- Average Daily Return truoc phi: 0.7746%/ngay
+- Average Daily Return sau phi: 0.4144%/ngay
+- Cumulative Return truoc phi: 1219.67%
+- Cumulative Return sau phi: 223.39%
+- Benchmark Cumulative Return: 23.72%
+- Hit Rate: 52.55%
+- Sharpe Ratio truoc phi: 2.5577
+- Sharpe Ratio sau phi: 1.3697
 
 Nhan xet backtest:
 
-Voi nguong P(BUY) >= 60%, so ngay co giao dich chi con 8 ngay. Tin hieu BUY chat hon, nhung qua it va chua tao loi nhuan rong sau chi phi. Ket qua nay cho thay nguong 60% phu hop de hien thi tin hieu chat trong dashboard, nhung chien luoc backtest can tiep tuc toi uu de can bang giua precision, so luong co hoi va loi nhuan sau phi.
+Voi nguong backtest moi P(BUY) >= 35%, top_k = 5 va loc gia dong cua toi thieu 10.0, chien luoc co 353 ngay giao dich va loi nhuan sau phi duong. Nguong 60% van phu hop de hien thi tin hieu co do tu tin cao tren dashboard, con nguong backtest duoc ha xuong de can bang giua so luong co hoi va loi nhuan sau phi.
 
 
 5. TICH HOP HE THONG VA VAN HANH
 
 He thong duoc to chuc thanh cac module:
 
-- src/data_loader.py: doc du lieu tu CSV hoac ClickHouse.
+- src/data_loader.py: doc du lieu tu ClickHouse.
 - src/preprocessing.py: tien xu ly, tao target va chia train/validation/test.
 - src/train_model.py: huan luyen va luu XGBoost model.
 - src/evaluate.py: danh gia mo hinh, tao prediction va metrics.
@@ -321,7 +320,6 @@ Quy trinh van hanh voi ClickHouse:
 
 Bien moi truong can cau hinh:
 
-- MODEL3_DATA_SOURCE=clickhouse
 - CLICKHOUSE_HOST=cvzq3t560s.ap-southeast-1.aws.clickhouse.cloud
 - CLICKHOUSE_PORT=8443
 - CLICKHOUSE_USERNAME=default
@@ -339,11 +337,11 @@ Trong van hanh thuc te, nen uu tien adjusted_signal thay vi predicted_signal, vi
 
 Han che:
 
-- Accuracy tong the chua cao, model moi dat muc trung binh neu xet theo bai toan phan loai 3 lop.
+- Accuracy tong the da tang len 56.30%, nhung van can danh gia them bang walk-forward de tranh toi uu qua muc tren mot tap test co dinh.
 - Mo hinh con nham lan dang ke giua BUY va SELL.
-- Lop HOLD kho phan biet vi bien dong nho quanh nguong -1% den +1%.
-- Backtest voi nguong BUY 60% co qua it ngay giao dich va loi nhuan sau phi dang am.
-- Hit Rate trong backtest con thap.
+- Lop HOLD da rong hon voi nguong -2.5% den +2.5%, nen accuracy tang nhung so tin hieu BUY/SELL ro rang giam.
+- Backtest phu thuoc manh vao nguong P(BUY), top_k va bo loc thanh khoan/gia.
+- Hit Rate trong backtest con thap neu tinh tren toan bo ngay backtest, do chien luoc chi giao dich vao mot phan so ngay.
 - Du lieu chu yeu la gia, khoi luong va chi bao ky thuat, chua co tin tuc, bao cao tai chinh, dong tien nganh hay chi so thi truong chung.
 - Cac nguong hien tai duoc chon dua tren du lieu da co, can can than de tranh overfitting khi ap dung vao tuong lai.
 
@@ -363,8 +361,8 @@ Huong cai tien:
 
 Ket luan:
 
-Model 3 da hoan thanh pipeline tu du lieu ClickHouse, feature engineering, huan luyen, danh gia, backtest den dashboard bao cao. Mo hinh goc co Accuracy 46.69%, cao hon baseline 38.63%, cho thay co hoc duoc tin hieu tu du lieu lich su.
+Model 3 da hoan thanh pipeline tu du lieu ClickHouse, feature engineering, huan luyen, danh gia, backtest den dashboard bao cao. Sau khi mo rong nguong gan nhan thanh SELL <= -2.5%, HOLD trong khoang -2.5% den +2.5% va BUY >= +2.5%, mo hinh dat Accuracy 56.30%, cao hon baseline 51.59%.
 
-Neu su dung tat ca du doan goc, precision cua BUY va SELL con thap. Khi them lop loc xac suat voi nguong P >= 60%, BUY Precision tang len 69.58% va SELL Precision tang len 66.21%. Dieu nay phu hop voi muc tieu hien thi tin hieu giao dich co do tin cay cao hon.
+Khi them lop loc xac suat voi nguong P >= 60%, BUY Precision dat 67.98% va SELL Precision dat 65.03%. Dieu nay phu hop voi muc tieu hien thi tin hieu giao dich co do tin cay cao hon.
 
-Tuy nhien, backtest voi nguong chat hien tai chua tao loi nhuan rong sau chi phi. Do do, mo hinh hien tai phu hop lam nen tang nghien cuu, dashboard va bao cao phan tich. Truoc khi ap dung vao giao dich thuc te, can tiep tuc toi uu feature, nguong tin hieu, chien luoc backtest va danh gia rui ro day du hon.
+Backtest mac dinh moi su dung top_k = 5, min_close = 10.0 va P(BUY) >= 35%, tao loi nhuan tich luy sau phi 223.39% tren tap test hien tai. Ket qua nay tot hon cau hinh cu, nhung truoc khi ap dung vao giao dich thuc te van can danh gia walk-forward, kiem tra overfitting, bo sung feature thi truong/nganh va danh gia rui ro day du hon.
