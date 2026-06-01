@@ -1,5 +1,21 @@
 
+import os
+
+
 DATA_PATH = "data/raw/features_all.csv"
+DATA_SOURCE = os.getenv("MODEL3_DATA_SOURCE", "csv").strip().lower()
+
+CLICKHOUSE_HOST = os.getenv("CLICKHOUSE_HOST", "")
+CLICKHOUSE_PORT = int(os.getenv("CLICKHOUSE_PORT", "8443"))
+CLICKHOUSE_USERNAME = os.getenv("CLICKHOUSE_USERNAME", os.getenv("CLICKHOUSE_USER", "default"))
+CLICKHOUSE_PASSWORD = os.getenv("CLICKHOUSE_PASSWORD", "")
+CLICKHOUSE_DATABASE = os.getenv("CLICKHOUSE_DATABASE", "stock")
+CLICKHOUSE_FEATURES_TABLE = os.getenv("MODEL3_CLICKHOUSE_FEATURES_TABLE", "features_all")
+CLICKHOUSE_SECURE = os.getenv("CLICKHOUSE_SECURE", "true").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+}
 
 MODEL_PATH = "models/trading_signal_xgb_classifier.pkl"
 
