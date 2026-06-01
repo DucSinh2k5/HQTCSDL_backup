@@ -1,40 +1,19 @@
-from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
-DATA_PATH = PROJECT_ROOT / "data" / "clean" / "features_all.csv"
+DATA_PATH = "data/raw/features_all.csv"
 
-# --- CẤU HÌNH CLICKHOUSE ---
-CLICKHOUSE_HOST = "cvzq3t560s.ap-southeast-1.aws.clickhouse.cloud"
-CLICKHOUSE_PORT = 8443
-CLICKHOUSE_USER = "default"
-CLICKHOUSE_PASSWORD = "ze_1268BkMgWP"
-CLICKHOUSE_DATABASE = "stock"
-CLICKHOUSE_TABLE = "features_all"
-CLICKHOUSE_SECURE = True
+MODEL_PATH = "models/trading_signal_xgb_classifier.pkl"
 
-
-MODEL3_DIR = PROJECT_ROOT / "models" / "model3"
-MODEL_OUTPUT_DIR = MODEL3_DIR / "models"
-REPORTS_DIR = MODEL3_DIR / "reports"
-
-
-MODEL_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-
-# Định nghĩa lại các file theo đường dẫn động (Dynamic Path)
-MODEL_PATH = str(MODEL_OUTPUT_DIR / "trading_signal_xgb_classifier.pkl")
-METRICS_PATH = str(REPORTS_DIR / "metrics.json")
-PREDICTION_PATH = str(REPORTS_DIR / "predictions.csv")
-PREDICTION_ACCURACY_PATH = str(REPORTS_DIR / "prediction_accuracy.csv")
-FEATURE_IMPORTANCE_PATH = str(REPORTS_DIR / "feature_importance.csv")
-BACKTEST_PATH = str(REPORTS_DIR / "backtest.csv")
-BACKTEST_METRICS_PATH = str(REPORTS_DIR / "backtest_metrics.json")
-BACKTEST_SWEEP_PATH = str(REPORTS_DIR / "backtest_sweep.csv")
-WALK_FORWARD_PREDICTION_PATH = str(REPORTS_DIR / "walk_forward_predictions.csv")
-WALK_FORWARD_FOLD_METRICS_PATH = str(REPORTS_DIR / "walk_forward_fold_metrics.csv")
-WALK_FORWARD_BACKTEST_PATH = str(REPORTS_DIR / "walk_forward_backtest.csv")
-WALK_FORWARD_BACKTEST_METRICS_PATH = str(REPORTS_DIR / "walk_forward_backtest_metrics.json")
-
+METRICS_PATH = "reports/metrics.json"
+PREDICTION_PATH = "reports/predictions.csv"
+PREDICTION_ACCURACY_PATH = "reports/prediction_accuracy.csv"
+FEATURE_IMPORTANCE_PATH = "reports/feature_importance.csv"
+BACKTEST_PATH = "reports/backtest.csv"
+BACKTEST_METRICS_PATH = "reports/backtest_metrics.json"
+BACKTEST_SWEEP_PATH = "reports/backtest_sweep.csv"
+WALK_FORWARD_PREDICTION_PATH = "reports/walk_forward_predictions.csv"
+WALK_FORWARD_FOLD_METRICS_PATH = "reports/walk_forward_fold_metrics.csv"
+WALK_FORWARD_BACKTEST_PATH = "reports/walk_forward_backtest.csv"
+WALK_FORWARD_BACKTEST_METRICS_PATH = "reports/walk_forward_backtest_metrics.json"
 
 HORIZON = 5
 
@@ -44,16 +23,19 @@ EARLY_STOPPING_ROUNDS = 50
 BACKTEST_TOP_K = 10
 BACKTEST_MIN_VOLUME = 100000
 BACKTEST_MIN_CLOSE = 5.0
-BACKTEST_MIN_BUY_PROBABILITY = 0.45
+BACKTEST_MIN_BUY_PROBABILITY = 0.60
+BACKTEST_MIN_BUY_SELL_MARGIN = 0.00
 BACKTEST_TOP_K_VALUES = [5, 10, 20]
 BACKTEST_MIN_VOLUME_VALUES = [50000, 100000, 200000]
 BACKTEST_MIN_CLOSE_VALUES = [5.0, 10.0]
-BACKTEST_MIN_BUY_PROBABILITY_VALUES = [0.35, 0.45, 0.55, 0.65]
+BACKTEST_MIN_BUY_PROBABILITY_VALUES = [0.35, 0.45, 0.55, 0.60, 0.65]
 TRANSACTION_COST_RATE = 0.001
 SLIPPAGE_RATE = 0.001
 MAX_ABS_TARGET_RETURN = 0.2
 SELL_RETURN_THRESHOLD = -0.01
 BUY_RETURN_THRESHOLD = 0.01
+SIGNAL_MIN_ACTION_PROBABILITY = 0.60
+SIGNAL_MIN_ACTION_MARGIN = 0.00
 SIGNAL_LABELS = {
     0: "SELL",
     1: "HOLD",
@@ -66,8 +48,6 @@ WALK_FORWARD_STEP_RATIO = 0.1
 WALK_FORWARD_MAX_FOLDS = 4
 
 FEATURES = [
-    "encode_sector",
-
     "open", "high", "low", "close", "volume",
 
     "return_1d", "return_3d", "return_5d", "return_10d", "return_20d",

@@ -22,6 +22,8 @@ SIGNAL_COLORS = {
     "HOLD": "#6c757d",
     "BUY": "#2a9d8f",
 }
+SIGNAL_MIN_ACTION_PROBABILITY = 0.60
+SIGNAL_MIN_ACTION_MARGIN = 0.00
 
 
 def load_json(path):
@@ -37,6 +39,16 @@ def read_csv(path, **kwargs):
     return pd.read_csv(path, **kwargs)
 
 
+def read_existing_columns(path, columns):
+    if not path.exists():
+        return pd.DataFrame()
+    available_columns = pd.read_csv(path, nrows=0).columns.tolist()
+    usecols = [col for col in columns if col in available_columns]
+    if not usecols:
+        return pd.DataFrame()
+    return pd.read_csv(path, usecols=usecols)
+
+
 def format_pct(value):
     if value is None or pd.isna(value):
         return "N/A"
@@ -47,6 +59,99 @@ def format_number(value, digits=2):
     if value is None or pd.isna(value):
         return "N/A"
     return f"{float(value):,.{digits}f}"
+
+
+def format_volume(value):
+    if value is None or pd.isna(value):
+        return "N/A"
+    value = float(value)
+    if abs(value) >= 1_000_000:
+        return f"{value / 1_000_000:.2f}M"
+    if abs(value) >= 1_000:
+        return f"{value / 1_000:.1f}K"
+    return f"{value:,.0f}"
+
+
+def signal_badge(signal):
+    signal = str(signal) if signal is not None else "N/A"
+    color = SIGNAL_COLORS.get(signal, "#6c757d")
+    return f'<span class="signal-badge" style="--badge-color:{color}">{html.escape(signal)}</span>'
+
+
+def probability_meter(value):
+    if value is None or pd.isna(value):
+        return '<span class="empty">N/A</span>'
+    pct = min(max(float(value), 0), 1) * 100
+    return (
+        '<div class="prob-meter">'
+        f'<span style="width:{pct:.1f}%"></span>'
+        f"<b>{pct:.1f}%</b>"
+        "</div>"
+    )
+
+
+def prepare_predictions():
+    columns = [
+        "trading_date",
+        "symbol",
+        "close",
+        "volume",
+        "target_signal",
+        "predicted_signal",
+        "adjusted_signal",
+        "sell_probability",
+        "hold_probability",
+        "buy_probability",
+        "predicted_signal_score",
+        "buy_sell_margin",
+        "signal_confidence",
+    ]
+    predictions = read_existing_columns(PREDICTIONS_PATH, columns)
+    if predictions.empty:
+        return predictions
+
+    for col in ["close", "volume", "sell_probability", "hold_probability", "buy_probability"]:
+        if col in predictions:
+            predictions[col] = pd.to_numeric(predictions[col], errors="coerce")
+
+    if {"sell_probability", "hold_probability", "buy_probability"}.issubset(predictions.columns):
+        if "buy_sell_margin" not in predictions:
+            predictions["buy_sell_margin"] = (
+                predictions["buy_probability"] - predictions["sell_probability"]
+            )
+        if "signal_confidence" not in predictions:
+            predictions["signal_confidence"] = predictions[
+                ["sell_probability", "hold_probability", "buy_probability"]
+            ].max(axis=1)
+        if "adjusted_signal" not in predictions:
+            predictions["adjusted_signal"] = "HOLD"
+            buy_mask = (
+                (predictions["buy_probability"] >= SIGNAL_MIN_ACTION_PROBABILITY)
+                & (predictions["buy_probability"] >= predictions["hold_probability"])
+                & (predictions["buy_sell_margin"] >= SIGNAL_MIN_ACTION_MARGIN)
+            )
+            sell_mask = (
+                (predictions["sell_probability"] >= SIGNAL_MIN_ACTION_PROBABILITY)
+                & (predictions["sell_probability"] >= predictions["hold_probability"])
+                & ((-predictions["buy_sell_margin"]) >= SIGNAL_MIN_ACTION_MARGIN)
+            )
+            predictions.loc[buy_mask, "adjusted_signal"] = "BUY"
+            predictions.loc[sell_mask, "adjusted_signal"] = "SELL"
+
+    if "trading_date" in predictions:
+        predictions["trading_date"] = pd.to_datetime(predictions["trading_date"], errors="coerce")
+
+    return predictions
+
+
+def signal_precision(predictions, signal_col, signal):
+    if predictions.empty or {signal_col, "target_signal"}.difference(predictions.columns):
+        return None, 0
+    selected = predictions[predictions[signal_col] == signal]
+    if selected.empty:
+        return None, 0
+    precision = selected["target_signal"].eq(signal).mean() * 100
+    return precision, len(selected)
 
 
 def metric_card(title, value, caption=""):
@@ -166,14 +271,18 @@ def make_line_chart(df):
     )
 
 
-def make_signal_distribution():
-    usecols = ["target_signal", "predicted_signal"]
-    predictions = read_csv(PREDICTIONS_PATH, usecols=usecols)
+def make_signal_distribution(predictions=None):
+    if predictions is None:
+        usecols = ["target_signal", "predicted_signal", "adjusted_signal"]
+        predictions = read_existing_columns(PREDICTIONS_PATH, usecols)
     if predictions.empty:
         return '<p class="empty">Prediction distribution is not available.</p>'
 
     rows = []
-    for column, title in [("target_signal", "Actual"), ("predicted_signal", "Predicted")]:
+    series = [("target_signal", "Actual"), ("predicted_signal", "Model")]
+    if "adjusted_signal" in predictions:
+        series.append(("adjusted_signal", "Adjusted"))
+    for column, title in series:
         counts = predictions[column].value_counts().reindex(SIGNAL_NAMES, fill_value=0)
         total = counts.sum() or 1
         items = []
@@ -188,6 +297,137 @@ def make_signal_distribution():
             )
         rows.append(f'<div class="dist-card"><h3>{title}</h3>{"".join(items)}</div>')
     return '<div class="distribution-grid">' + "".join(rows) + "</div>"
+
+
+def make_market_data_table(predictions, signal, limit=10):
+    if predictions.empty or "adjusted_signal" not in predictions:
+        return '<p class="empty">Market data is not available.</p>'
+
+    if signal == "BUY":
+        sort_col = "buy_probability"
+        signal_df = predictions[
+            predictions["buy_probability"].notna()
+            & (predictions["buy_probability"] >= predictions["sell_probability"])
+        ].copy()
+    else:
+        sort_col = "sell_probability"
+        signal_df = predictions[
+            predictions["sell_probability"].notna()
+            & (predictions["sell_probability"] >= predictions["buy_probability"])
+        ].copy()
+
+    if signal_df.empty:
+        return f'<p class="empty">No {html.escape(signal)} candidates available.</p>'
+
+    signal_df = signal_df.sort_values(sort_col, ascending=False).head(limit)
+    rows = []
+    for _, row in signal_df.iterrows():
+        date = row.get("trading_date")
+        date_text = date.strftime("%Y-%m-%d") if pd.notna(date) else "N/A"
+        qualified = row.get("adjusted_signal") == signal
+        status = signal if qualified else "WATCH"
+        status_color = SIGNAL_COLORS.get(signal, "#6c757d") if qualified else "#6c757d"
+        rows.append(
+            "<tr>"
+            f"<td>{html.escape(date_text)}</td>"
+            f"<td><b>{html.escape(str(row.get('symbol', 'N/A')))}</b></td>"
+            f'<td><span class="signal-badge" style="--badge-color:{status_color}">{status}</span></td>'
+            f"<td>{format_number(row.get('close'), 2)}</td>"
+            f"<td>{format_volume(row.get('volume'))}</td>"
+            f"<td>{probability_meter(row.get('buy_probability'))}</td>"
+            f"<td>{probability_meter(row.get('sell_probability'))}</td>"
+            f"<td>{format_number(row.get('buy_sell_margin'), 3)}</td>"
+            "</tr>"
+        )
+
+    header = (
+        "<th>Date</th><th>Symbol</th><th>Signal</th><th>Close</th>"
+        "<th>Volume</th><th>P(BUY)</th><th>P(SELL)</th><th>Margin</th>"
+    )
+    return (
+        '<div class="table-wrap"><table class="data-table market-table">'
+        f"<thead><tr>{header}</tr></thead><tbody>{''.join(rows)}</tbody></table></div>"
+    )
+
+
+def make_market_data_section(predictions):
+    if predictions.empty:
+        return '<p class="empty">Market data is not available.</p>'
+
+    latest_date = predictions["trading_date"].max() if "trading_date" in predictions else pd.NaT
+    if pd.notna(latest_date):
+        latest_df = predictions[predictions["trading_date"] == latest_date].copy()
+        date_text = latest_date.strftime("%Y-%m-%d")
+    else:
+        latest_df = predictions.copy()
+        date_text = "N/A"
+
+    counts = latest_df.get("adjusted_signal", pd.Series(dtype=str)).value_counts()
+    summary = (
+        '<div class="market-strip">'
+        f'<span><b>Latest date</b>{html.escape(date_text)}</span>'
+        f'<span><b>Symbols</b>{len(latest_df):,}</span>'
+        f'<span><b>BUY</b>{int(counts.get("BUY", 0)):,}</span>'
+        f'<span><b>HOLD</b>{int(counts.get("HOLD", 0)):,}</span>'
+        f'<span><b>SELL</b>{int(counts.get("SELL", 0)):,}</span>'
+        "</div>"
+    )
+    return (
+        summary
+        + '<div class="market-grid">'
+        + '<section><h3>Top BUY Candidates / Watchlist</h3>'
+        + make_market_data_table(latest_df, "BUY")
+        + "</section>"
+        + '<section><h3>Top SELL / Risk Watchlist</h3>'
+        + make_market_data_table(latest_df, "SELL")
+        + "</section>"
+        + "</div>"
+    )
+
+
+def make_insights_panel(predictions, metrics, backtest_metrics):
+    items = []
+    accuracy = metrics.get("Accuracy")
+    adjusted_accuracy = metrics.get("Adjusted_Accuracy")
+    if adjusted_accuracy is not None:
+        items.append(
+            "Adjusted signal accuracy is "
+            f"{format_pct(adjusted_accuracy)}, compared with raw model accuracy "
+            f"{format_pct(accuracy)}."
+        )
+    elif accuracy is not None:
+        items.append(f"Raw model accuracy is {format_pct(accuracy)}.")
+
+    net_return = backtest_metrics.get("Cumulative_Return_Net")
+    sharpe = backtest_metrics.get("Sharpe_Ratio_Net")
+    if net_return is not None:
+        items.append(
+            "Backtest net return is "
+            f"{float(net_return):.2%} with net Sharpe {format_number(sharpe, 3)}."
+        )
+
+    if not predictions.empty and "adjusted_signal" in predictions:
+        buy_df = predictions[predictions["adjusted_signal"] == "BUY"].copy()
+        if not buy_df.empty:
+            top_buy = buy_df.sort_values("buy_sell_margin", ascending=False).iloc[0]
+            items.append(
+                "Strongest BUY candidate is "
+                f"{html.escape(str(top_buy.get('symbol')))} with P(BUY) "
+                f"{float(top_buy.get('buy_probability')):.1%}."
+            )
+        sell_df = predictions[predictions["adjusted_signal"] == "SELL"].copy()
+        if not sell_df.empty:
+            top_sell = sell_df.sort_values("signal_confidence", ascending=False).iloc[0]
+            items.append(
+                "Highest-risk SELL signal is "
+                f"{html.escape(str(top_sell.get('symbol')))} with P(SELL) "
+                f"{float(top_sell.get('sell_probability')):.1%}."
+            )
+
+    if not items:
+        return '<p class="empty">Insights are not available.</p>'
+
+    return '<ul class="insight-list">' + "".join(f"<li>{item}</li>" for item in items) + "</ul>"
 
 
 def make_backtest_sweep_table():
@@ -228,6 +468,17 @@ def build_dashboard_html():
     backtest_metrics = load_json(BACKTEST_METRICS_PATH)
     feature_importance = read_csv(FEATURE_IMPORTANCE_PATH)
     backtest = read_csv(BACKTEST_PATH)
+    predictions = prepare_predictions()
+    if (
+        "Adjusted_Accuracy" not in metrics
+        and not predictions.empty
+        and {"target_signal", "adjusted_signal"}.issubset(predictions.columns)
+    ):
+        metrics["Adjusted_Accuracy"] = (
+            predictions["target_signal"].eq(predictions["adjusted_signal"]).mean() * 100
+        )
+    buy_precision, buy_count = signal_precision(predictions, "adjusted_signal", "BUY")
+    sell_precision, sell_count = signal_precision(predictions, "adjusted_signal", "SELL")
 
     cards = [
         metric_card(
@@ -235,6 +486,8 @@ def build_dashboard_html():
             format_pct(metrics.get("Accuracy")),
             f"Baseline: {format_pct(metrics.get('Baseline_Accuracy'))}",
         ),
+        metric_card("BUY Precision", format_pct(buy_precision), f"Adjusted BUY rows: {buy_count:,}"),
+        metric_card("SELL Precision", format_pct(sell_precision), f"Adjusted SELL rows: {sell_count:,}"),
         metric_card("Macro F1", format_number(metrics.get("Macro_F1"), 4)),
         metric_card(
             "Net Return",
@@ -262,6 +515,8 @@ def build_dashboard_html():
       --bg: #f5f7f9;
       --panel: #ffffff;
       --accent: #2a9d8f;
+      --risk: #d1495b;
+      --warn: #f4a261;
     }}
     * {{ box-sizing: border-box; }}
     body {{
@@ -281,7 +536,7 @@ def build_dashboard_html():
     main {{ padding: 22px clamp(18px, 4vw, 44px) 40px; }}
     .metric-grid {{
       display: grid;
-      grid-template-columns: repeat(4, minmax(160px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: 12px;
     }}
     .metric-card, .panel {{
@@ -339,10 +594,65 @@ def build_dashboard_html():
       align-items: center;
     }}
     .dist-item small {{ color: var(--muted); }}
+    .market-strip {{
+      display: grid;
+      grid-template-columns: repeat(5, minmax(120px, 1fr));
+      gap: 10px;
+      margin-bottom: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }}
+    .market-strip span {{ padding: 12px; border-right: 1px solid var(--line); }}
+    .market-strip span:last-child {{ border-right: 0; }}
+    .market-strip b {{ display: block; color: var(--muted); font-size: 12px; margin-bottom: 4px; }}
+    .market-grid {{ display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }}
+    .market-grid h3 {{ margin: 0 0 10px; font-size: 15px; }}
+    .table-wrap {{ overflow-x: auto; }}
+    .signal-badge {{
+      display: inline-flex;
+      align-items: center;
+      min-width: 58px;
+      justify-content: center;
+      padding: 4px 8px;
+      border-radius: 6px;
+      color: var(--badge-color);
+      background: color-mix(in srgb, var(--badge-color) 12%, white);
+      border: 1px solid color-mix(in srgb, var(--badge-color) 26%, white);
+      font-size: 12px;
+      font-weight: 700;
+    }}
+    .prob-meter {{
+      display: grid;
+      grid-template-columns: 72px 48px;
+      align-items: center;
+      gap: 8px;
+      min-width: 128px;
+    }}
+    .prob-meter span {{
+      display: block;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--accent);
+    }}
+    .prob-meter:before {{
+      content: "";
+      grid-column: 1;
+      grid-row: 1;
+      height: 8px;
+      border-radius: 999px;
+      background: #e8eef2;
+      z-index: 0;
+    }}
+    .prob-meter span {{ grid-column: 1; grid-row: 1; z-index: 1; }}
+    .prob-meter b {{ font-size: 12px; font-weight: 700; }}
+    .insight-list {{ margin: 0; padding-left: 18px; }}
+    .insight-list li {{ margin: 9px 0; color: var(--ink); }}
     .empty {{ color: var(--muted); margin: 0; }}
     @media (max-width: 900px) {{
       .metric-grid, .grid-2 {{ grid-template-columns: 1fr; }}
       .distribution-grid {{ grid-template-columns: 1fr; }}
+      .market-strip, .market-grid {{ grid-template-columns: 1fr; }}
       .bar-row {{ grid-template-columns: 96px 1fr 56px; }}
     }}
   </style>
@@ -361,8 +671,16 @@ def build_dashboard_html():
       </div>
       <div class="panel">
         <h2>Signal Distribution</h2>
-        {make_signal_distribution()}
+        {make_signal_distribution(predictions)}
       </div>
+    </section>
+    <section class="panel" style="margin-top:14px">
+      <h2>Market Data</h2>
+      {make_market_data_section(predictions)}
+    </section>
+    <section class="panel" style="margin-top:14px">
+      <h2>Insights For Report</h2>
+      {make_insights_panel(predictions, metrics, backtest_metrics)}
     </section>
     <section class="grid-2">
       <div class="panel">

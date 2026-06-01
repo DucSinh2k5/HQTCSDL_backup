@@ -2,6 +2,8 @@ import joblib
 import pandas as pd
 import numpy as np
 
+from src.signal_decision import apply_confidence_adjusted_signals
+
 
 def load_saved_model(model_path):
     saved = joblib.load(model_path)
@@ -13,7 +15,14 @@ def load_saved_model(model_path):
     return model, features, signal_labels
 
 
-def predict_latest_signal(df, model, features, signal_labels=None):
+def predict_latest_signal(
+    df,
+    model,
+    features,
+    signal_labels=None,
+    min_action_probability=0.40,
+    min_action_margin=0.03,
+):
     signal_labels = signal_labels or {0: "SELL", 1: "HOLD", 2: "BUY"}
     df = df.copy()
 
@@ -44,6 +53,11 @@ def predict_latest_signal(df, model, features, signal_labels=None):
 
     latest_df["predicted_signal_score"] = (
         latest_df["buy_probability"] - latest_df["sell_probability"]
+    )
+    latest_df = apply_confidence_adjusted_signals(
+        latest_df,
+        min_action_probability=min_action_probability,
+        min_action_margin=min_action_margin,
     )
 
     return latest_df

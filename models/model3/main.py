@@ -2,6 +2,7 @@ import os
 import json
 
 from src.config import (
+    DATA_PATH,
     MODEL_PATH,
     METRICS_PATH,
     PREDICTION_PATH,
@@ -20,6 +21,7 @@ from src.config import (
     BACKTEST_MIN_VOLUME,
     BACKTEST_MIN_CLOSE,
     BACKTEST_MIN_BUY_PROBABILITY,
+    BACKTEST_MIN_BUY_SELL_MARGIN,
     BACKTEST_TOP_K_VALUES,
     BACKTEST_MIN_VOLUME_VALUES,
     BACKTEST_MIN_CLOSE_VALUES,
@@ -29,6 +31,8 @@ from src.config import (
     MAX_ABS_TARGET_RETURN,
     SELL_RETURN_THRESHOLD,
     BUY_RETURN_THRESHOLD,
+    SIGNAL_MIN_ACTION_PROBABILITY,
+    SIGNAL_MIN_ACTION_MARGIN,
     SIGNAL_LABELS,
 )
 
@@ -53,7 +57,7 @@ def main():
     create_folders()
 
     print("Loading data...")
-    df = load_data()
+    df = load_data(DATA_PATH)
 
     print("Preprocessing data...")
     df, final_features = preprocess_data(
@@ -97,7 +101,9 @@ def main():
     metrics, result_df = evaluate_model(
         model=model,
         X_test=X_test,
-        test_df=test_df
+        test_df=test_df,
+        min_action_probability=SIGNAL_MIN_ACTION_PROBABILITY,
+        min_action_margin=SIGNAL_MIN_ACTION_MARGIN,
     )
 
     print("Running top-k backtest...")
@@ -107,6 +113,7 @@ def main():
         min_volume=BACKTEST_MIN_VOLUME,
         min_close=BACKTEST_MIN_CLOSE,
         min_buy_probability=BACKTEST_MIN_BUY_PROBABILITY,
+        min_buy_sell_margin=BACKTEST_MIN_BUY_SELL_MARGIN,
         transaction_cost_rate=TRANSACTION_COST_RATE,
         slippage_rate=SLIPPAGE_RATE
     )

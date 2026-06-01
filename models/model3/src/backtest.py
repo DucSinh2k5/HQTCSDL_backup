@@ -10,6 +10,7 @@ def compute_top_k_backtest(
     min_volume=None,
     min_close=None,
     min_buy_probability=0.45,
+    min_buy_sell_margin=0.0,
     transaction_cost_rate=0.0,
     slippage_rate=0.0,
 ):
@@ -22,6 +23,9 @@ def compute_top_k_backtest(
     if min_buy_probability < 0 or min_buy_probability > 1:
         raise ValueError("min_buy_probability must be between 0 and 1")
 
+    if min_buy_sell_margin < 0:
+        raise ValueError("min_buy_sell_margin must be non-negative")
+
     required_columns = [
         "trading_date",
         "symbol",
@@ -29,6 +33,8 @@ def compute_top_k_backtest(
         "buy_probability",
         "target_return",
     ]
+    if min_buy_sell_margin > 0:
+        required_columns.append("sell_probability")
     if min_volume is not None:
         required_columns.append("volume")
     if min_close is not None:
@@ -53,10 +59,19 @@ def compute_top_k_backtest(
 
     daily_rows = []
     for trading_date, day_df in df.groupby("trading_date", sort=True):
-        selected_df = day_df[
+        buy_mask = (
             (day_df["predicted_signal"] == "BUY")
             & (day_df["buy_probability"] >= min_buy_probability)
-        ].sort_values("buy_probability", ascending=False).head(top_k)
+        )
+        if min_buy_sell_margin > 0:
+            buy_mask = buy_mask & (
+                (day_df["buy_probability"] - day_df["sell_probability"])
+                >= min_buy_sell_margin
+            )
+
+        selected_df = day_df[buy_mask].sort_values(
+            "buy_probability", ascending=False
+        ).head(top_k)
 
         selected_symbols = ""
         daily_return = 0.0
@@ -114,6 +129,7 @@ def compute_top_k_backtest(
         "Min_Volume": min_volume,
         "Min_Close": min_close,
         "Min_Buy_Probability": min_buy_probability,
+        "Min_Buy_Sell_Margin": min_buy_sell_margin,
         "Transaction_Cost_Rate": transaction_cost_rate,
         "Slippage_Rate": slippage_rate,
         "Round_Trip_Cost_Rate": round_trip_cost_rate,
@@ -142,25 +158,29 @@ def run_backtest_sweep(
     min_volume_values,
     min_close_values,
     min_buy_probability_values,
+    min_buy_sell_margin_values=None,
     transaction_cost_rate=0.0,
     slippage_rate=0.0,
 ):
     sweep_rows = []
+    min_buy_sell_margin_values = min_buy_sell_margin_values or [0.0]
 
     for top_k in top_k_values:
         for min_volume in min_volume_values:
             for min_close in min_close_values:
                 for min_buy_probability in min_buy_probability_values:
-                    _, metrics = compute_top_k_backtest(
-                        result_df=result_df,
-                        top_k=top_k,
-                        min_volume=min_volume,
-                        min_close=min_close,
-                        min_buy_probability=min_buy_probability,
-                        transaction_cost_rate=transaction_cost_rate,
-                        slippage_rate=slippage_rate,
-                    )
-                    sweep_rows.append(metrics)
+                    for min_buy_sell_margin in min_buy_sell_margin_values:
+                        _, metrics = compute_top_k_backtest(
+                            result_df=result_df,
+                            top_k=top_k,
+                            min_volume=min_volume,
+                            min_close=min_close,
+                            min_buy_probability=min_buy_probability,
+                            min_buy_sell_margin=min_buy_sell_margin,
+                            transaction_cost_rate=transaction_cost_rate,
+                            slippage_rate=slippage_rate,
+                        )
+                        sweep_rows.append(metrics)
 
     return pd.DataFrame(sweep_rows).sort_values(
         ["Cumulative_Return_Net", "Sharpe_Ratio_Net"],
