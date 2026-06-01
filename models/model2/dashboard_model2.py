@@ -3,9 +3,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-from pathlib import Path
-
-REPORT_DIR = Path("reports")
+from src.config import REPORT_DIR
 
 
 def create_dashboard():

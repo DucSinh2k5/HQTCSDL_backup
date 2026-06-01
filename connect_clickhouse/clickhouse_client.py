@@ -1,5 +1,12 @@
 import os
+from pathlib import Path
+
 import clickhouse_connect
+from dotenv import load_dotenv
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(PROJECT_ROOT / ".env")
 
 def get_clickhouse_client():
     # Lấy cấu hình từ biến môi trường (do GitHub Actions hoặc file .env cấp)

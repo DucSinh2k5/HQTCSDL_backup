@@ -37,3 +37,4 @@ models/model5/models/*.pkl
 
 # Chặn hàng nghìn file ảnh đồ thị sinh ra hàng ngày của Model 4 để tránh tràn bộ nhớ Git
 models/model4/output/charts/
+models/model2/reports

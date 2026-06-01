@@ -1,9 +1,7 @@
 import json
 import pandas as pd
 
-from pathlib import Path
-
-REPORT_DIR = Path("reports")
+from .config import REPORT_DIR
 
 
 def generate_insights():

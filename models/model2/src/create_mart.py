@@ -1,12 +1,13 @@
-from .config import MART_TABLE, MODEL_NAME
-from .data_loader import get_clickhouse_client
+from .config import MART_DATABASE, MART_TABLE, MODEL_NAME
+from .data_loader import get_clickhouse_client, table_expression
 
 
 def create_mart_table():
     client = get_clickhouse_client()
+    target_table = table_expression(MART_DATABASE, MART_TABLE)
 
     query = f"""
-    CREATE TABLE IF NOT EXISTS {MART_TABLE}
+    CREATE TABLE IF NOT EXISTS {target_table}
     (
         symbol String,
         trading_date Date,
@@ -32,6 +33,7 @@ def create_mart_table():
 
 def insert_mart_data(prediction_df):
     client = get_clickhouse_client()
+    target_table = f"{MART_DATABASE}.{MART_TABLE}"
 
     mart_df = prediction_df[
         [
@@ -51,4 +53,4 @@ def insert_mart_data(prediction_df):
     mart_df["model_name"] = MODEL_NAME
     mart_df["trading_date"] = mart_df["trading_date"].dt.date
 
-    client.insert_df(MART_TABLE, mart_df)
+    client.insert_df(target_table, mart_df)

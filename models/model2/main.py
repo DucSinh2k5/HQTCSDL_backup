@@ -44,7 +44,7 @@ def main():
     df = load_stock_data()
 
     print("2. Feature engineering...")
-    # df = create_features(df)
+    df = create_features(df)
 
     print("3. Train/Test split...")
     (
