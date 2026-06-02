@@ -98,7 +98,6 @@ def main():
     run_backtest_sweep(prediction_df)
 
     print("11. Generate insights...")
-
     generate_insights()
 
     print("12. Create mart...")

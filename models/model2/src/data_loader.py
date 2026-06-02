@@ -66,3 +66,4 @@ def load_stock_data():
     df["trading_date"] = pd.to_datetime(df["trading_date"])
 
     return df
+
