@@ -2,10 +2,9 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-MODEL2_ROOT = Path(__file__).resolve().parents[1]
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
+MODEL2_ROOT = Path(__file__).resolve().parents[1] #...\HQTCSDL_stocks\models\model2
+PROJECT_ROOT = Path(__file__).resolve().parents[3] #...\HQTCSDL_stocks
 ENV_PATH = PROJECT_ROOT / ".env"
-
 load_dotenv(ENV_PATH)
 
 CLICKHOUSE_HOST = os.getenv("CLICKHOUSE_HOST")
