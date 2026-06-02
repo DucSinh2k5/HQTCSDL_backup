@@ -1,11 +1,8 @@
 from pathlib import Path
-import os
 
 import pandas as pd
-import clickhouse_connect
-from dotenv import load_dotenv
 
-load_dotenv()
+from clickhouse_client import get_clickhouse_client
 
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = BASE_DIR.parent
@@ -22,15 +19,7 @@ if CLEAN_PRICE_CSV is None:
     raise FileNotFoundError(
         "Could not find a clean price CSV. Tried:\n" + candidate_list
     )
-clickhouse_port_env = os.getenv("CLICKHOUSE_PORT")
-client = clickhouse_connect.get_client(
-    host=os.getenv("CLICKHOUSE_HOST"),
-    port = int(clickhouse_port_env) if clickhouse_port_env else 8443,
-    username=os.getenv("CLICKHOUSE_USER"),
-    password=os.getenv("CLICKHOUSE_PASSWORD"),
-    database=os.getenv("CLICKHOUSE_DATABASE", "default"),
-    secure=os.getenv("CLICKHOUSE_SECURE", "true").lower() == "true",
-)
+client = get_clickhouse_client()
 
 client.command("""
 CREATE DATABASE IF NOT EXISTS stock

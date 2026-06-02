@@ -1,17 +1,28 @@
 from pathlib import Path
+import os
+
+from dotenv import load_dotenv
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
+ENV_PATH = PROJECT_ROOT / ".env"
+
+load_dotenv(ENV_PATH)
 
 DATA_PATH = PROJECT_ROOT / "data" / "clean" / "features_all.csv"
 
-CLICKHOUSE_HOST = "cvzq3t560s.ap-southeast-1.aws.clickhouse.cloud"
-CLICKHOUSE_PORT = 8443
-CLICKHOUSE_USER = "default"
-CLICKHOUSE_PASSWORD = "8~0lxNgJPB65E"
-CLICKHOUSE_DATABASE = "stock"
-CLICKHOUSE_TABLE = "features_all"
-CLICKHOUSE_SECURE = True
+CLICKHOUSE_HOST = os.getenv("CLICKHOUSE_HOST", "")
+CLICKHOUSE_PORT = int(os.getenv("CLICKHOUSE_PORT") or "8443")
+CLICKHOUSE_USER = os.getenv("CLICKHOUSE_USER", "default")
+CLICKHOUSE_PASSWORD = os.getenv("CLICKHOUSE_PASSWORD", "")
+CLICKHOUSE_DATABASE = os.getenv("CLICKHOUSE_DATABASE", "default")
+CLICKHOUSE_SOURCE_DATABASE = os.getenv("CLICKHOUSE_SOURCE_DATABASE", "stock")
+CLICKHOUSE_TABLE = os.getenv("MODEL1_CLICKHOUSE_FEATURES_TABLE", os.getenv("CLICKHOUSE_TABLE", "features_all"))
+CLICKHOUSE_SECURE = os.getenv("CLICKHOUSE_SECURE", "true").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+}
 
 MODEL_PATH = PROJECT_ROOT / "models" / "model1" / "models" / "price_forecasting_xgb.pkl"
 

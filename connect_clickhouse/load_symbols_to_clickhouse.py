@@ -1,11 +1,8 @@
 from pathlib import Path
-import os
 
 import pandas as pd
-import clickhouse_connect
-from dotenv import load_dotenv
 
-load_dotenv()
+from clickhouse_client import get_clickhouse_client
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 CSV_PATH = PROJECT_DIR / "ingestion" / "company_infor.csv"
@@ -16,14 +13,7 @@ SOURCE_COLUMNS = ["symbol", "company_name", "sector", "listed_date"]
 TABLE_COLUMNS = ["symbol", "company_name", "sector", "encode_sector", "listed_date"]
 SYMBOL_ENCODING_COLUMNS = ["symbol", "encode_sector"]
 
-client = clickhouse_connect.get_client(
-    host=os.getenv("CLICKHOUSE_HOST"),
-    port=int(os.getenv("CLICKHOUSE_PORT", "8443")),
-    username=os.getenv("CLICKHOUSE_USER"),
-    password=os.getenv("CLICKHOUSE_PASSWORD"),
-    database=os.getenv("CLICKHOUSE_DATABASE", "default"),
-    secure=os.getenv("CLICKHOUSE_SECURE", "true").lower() == "true",
-)
+client = get_clickhouse_client()
 
 client.command("""
 CREATE DATABASE IF NOT EXISTS stock

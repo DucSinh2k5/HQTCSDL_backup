@@ -1,12 +1,11 @@
 import html
 import json
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
+from src.config import REPORTS_DIR
 
-REPORTS_DIR = Path("reports")
 DASHBOARD_PATH = REPORTS_DIR / "model3_dashboard.html"
 
 METRICS_PATH = REPORTS_DIR / "metrics.json"

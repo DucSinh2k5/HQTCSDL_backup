@@ -42,7 +42,7 @@ PIPELINE = [
 		PROJECT_ROOT / "connect_clickhouse" / "features_all.py",
 	),
 	("train_model1", PROJECT_ROOT / "models" / "model1" / "main.py"),
-	("train_model2", PROJECT_ROOT / "models" / "model2" / "run_pipeline.py"),
+	("train_model2", PROJECT_ROOT / "models" / "model2" / "main.py"),
 	("train_model3", PROJECT_ROOT / "models" / "model3" / "main.py"),
 	(
 		"train_model4",

@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 
 from src.backtest import save_backtest_metrics
 from src.config import (
@@ -32,7 +33,7 @@ from src.walk_forward import run_walk_forward_backtest
 
 
 def create_folders():
-    os.makedirs("reports", exist_ok=True)
+    os.makedirs(Path(WALK_FORWARD_PREDICTION_PATH).parent, exist_ok=True)
 
 
 def main():

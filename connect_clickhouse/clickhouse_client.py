@@ -32,5 +32,5 @@ def get_clickhouse_client():
         password=CH_PASSWORD,
         secure=is_secure
     )
-    print(f"Đã kết nối thành công tới ClickHouse tại: {CH_HOST}:{CH_PORT} (Secure: {is_secure})")
+    print(f"Connected to ClickHouse: {CH_HOST}:{CH_PORT} (Secure: {is_secure})")
     return client

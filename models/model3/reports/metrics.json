@@ -1,50 +1,50 @@
 {
-    "Accuracy": 56.301749479872974,
-    "Macro_Precision": 0.5070094823772394,
-    "Macro_Recall": 0.4610380791058921,
-    "Macro_F1": 0.4597572533884255,
-    "Adjusted_Accuracy": 52.69160468661821,
-    "Adjusted_Macro_Precision": 0.6179804322913885,
-    "Adjusted_Macro_Recall": 0.3512822239118132,
-    "Adjusted_Macro_F1": 0.26759573966695,
-    "Adjusted_BUY_Precision": 67.98365122615803,
-    "Adjusted_SELL_Precision": 65.0275965880582,
+    "Accuracy": 46.68929675457586,
+    "Macro_Precision": 0.468918756673649,
+    "Macro_Recall": 0.4446091713005649,
+    "Macro_F1": 0.44236788044900904,
+    "Adjusted_Accuracy": 30.48323380025438,
+    "Adjusted_Macro_Precision": 0.543756348613873,
+    "Adjusted_Macro_Recall": 0.36754481941019185,
+    "Adjusted_Macro_F1": 0.2223983053272763,
+    "Adjusted_BUY_Precision": 69.32695844060316,
+    "Adjusted_SELL_Precision": 66.21417797888385,
     "Adjusted_Confusion_Matrix": [
         [
-            1296,
-            28029,
-            107
+            3951,
+            41348,
+            558
         ],
         [
-            361,
-            60761,
-            128
+            625,
+            30354,
+            276
         ],
         [
-            336,
-            27204,
-            499
+            1391,
+            38333,
+            1885
         ]
     ],
     "Signal_Min_Action_Probability": 0.6,
     "Signal_Min_Action_Margin": 0.0,
-    "Baseline_Accuracy": 51.591546567161664,
-    "Baseline_Label": "HOLD",
+    "Baseline_Accuracy": 38.62585389274012,
+    "Baseline_Label": "SELL",
     "Confusion_Matrix": [
         [
-            10285,
-            16152,
-            2995
+            29131,
+            4620,
+            12106
         ],
         [
-            6548,
-            50854,
-            3848
+            13674,
+            8355,
+            9226
         ],
         [
-            5546,
-            16790,
-            5703
+            19250,
+            4415,
+            17944
         ]
     ]
 }

@@ -1,5 +1,6 @@
 import os
 import json
+from pathlib import Path
 
 from src.config import (
     MODEL_PATH,
@@ -48,8 +49,8 @@ from src.backtest import compute_top_k_backtest, run_backtest_sweep, save_backte
 
 
 def create_folders():
-    os.makedirs("models", exist_ok=True)
-    os.makedirs("reports", exist_ok=True)
+    os.makedirs(Path(MODEL_PATH).parent, exist_ok=True)
+    os.makedirs(Path(METRICS_PATH).parent, exist_ok=True)
 
 
 def main():
