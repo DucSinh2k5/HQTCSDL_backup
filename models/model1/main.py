@@ -16,6 +16,8 @@ from src.config import (
     TRAIN_RATIO,
     VALIDATION_RATIO,
     EARLY_STOPPING_ROUNDS,
+    TARGET_TYPE,
+    RETURN_CALIBRATION_MIN_ABS_SIGNAL,
     BACKTEST_TOP_K,
     BACKTEST_MIN_VOLUME,
     BACKTEST_MIN_CLOSE,
@@ -32,6 +34,7 @@ from src.config import (
 from src.data_loader import load_data
 from src.preprocessing import preprocess_data, split_train_validation_test_by_time
 from src.train_model import train_xgboost_model, save_model
+from src.return_calibration import fit_return_calibrator
 from src.evaluate import (
     build_prediction_accuracy_table,
     evaluate_model,
@@ -42,8 +45,18 @@ from src.backtest import compute_top_k_backtest, run_backtest_sweep, save_backte
 
 
 def create_folders():
-    os.makedirs("models", exist_ok=True)
-    os.makedirs("reports", exist_ok=True)
+    output_paths = {
+        MODEL_PATH,
+        METRICS_PATH,
+        PREDICTION_PATH,
+        PREDICTION_ACCURACY_PATH,
+        FEATURE_IMPORTANCE_PATH,
+        BACKTEST_PATH,
+        BACKTEST_METRICS_PATH,
+        BACKTEST_SWEEP_PATH,
+    }
+    for path in output_paths:
+        os.makedirs(path.parent, exist_ok=True)
 
 
 def main():
@@ -70,10 +83,10 @@ def main():
     )
 
     X_train = train_df[final_features]
-    y_train = train_df["target_close"]
+    y_train = train_df["target_return"]
 
     X_val = validation_df[final_features]
-    y_val = validation_df["target_close"]
+    y_val = validation_df["target_return"]
 
     X_test = test_df[final_features]
 
@@ -88,11 +101,21 @@ def main():
         verbose=False
     )
 
+    print("Fitting return calibration...")
+    validation_raw_predicted_return = model.predict(X_val)
+    return_calibrator = fit_return_calibrator(
+        validation_raw_predicted_return,
+        y_val,
+        min_abs_signal=RETURN_CALIBRATION_MIN_ABS_SIGNAL,
+    )
+
     print("Evaluating model...")
     metrics, result_df = evaluate_model(
         model=model,
         X_test=X_test,
-        test_df=test_df
+        test_df=test_df,
+        target_type=TARGET_TYPE,
+        return_calibrator=return_calibrator
     )
 
     print("Running top-k backtest...")
@@ -122,7 +145,9 @@ def main():
         model=model,
         features=final_features,
         horizon=HORIZON,
-        model_path=MODEL_PATH
+        model_path=MODEL_PATH,
+        target_type=TARGET_TYPE,
+        return_calibrator=return_calibrator
     )
 
     save_metrics(metrics, METRICS_PATH)
