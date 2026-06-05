@@ -42,6 +42,11 @@ PIPELINE = [
 		PROJECT_ROOT / "connect_clickhouse" / "features_all.py",
 	),
 	("train_model1", PROJECT_ROOT / "models" / "model1" / "main.py"),
+	(
+		"generate_model1_marts",
+		PROJECT_ROOT / "models" / "model1" / "generate_marts.py",
+		["--upload-clickhouse"],
+	),
 	("train_model2", PROJECT_ROOT / "models" / "model2" / "main.py"),
 	("train_model3", PROJECT_ROOT / "models" / "model3" / "main.py"),
 	(
@@ -67,13 +72,33 @@ def parse_args() -> argparse.Namespace:
 	return parser.parse_args()
 
 
-def run_step(name: str, script_path: Path) -> None:
+def unpack_step(step):
+	if len(step) == 2:
+		name, script_path = step
+		args = []
+	elif len(step) == 3:
+		name, script_path, args = step
+	else:
+		raise ValueError(f"Invalid pipeline step: {step}")
+
+	return name, script_path, list(args)
+
+
+def display_script_path(script_path: Path) -> str:
+	try:
+		return script_path.relative_to(PROJECT_ROOT).as_posix()
+	except ValueError:
+		return script_path.name
+
+
+def run_step(name: str, script_path: Path, args: list[str] | None = None) -> None:
 	if not script_path.exists():
 		raise FileNotFoundError(f"Missing script: {script_path}")
 
-	print(f"[pipeline] Running {name}: {script_path}")
+	print(f"[pipeline] Running {name}: {display_script_path(script_path)}")
+	command = [sys.executable, str(script_path), *(args or [])]
 	subprocess.run(
-		[sys.executable, str(script_path)],
+		command,
 		check=True,
 		cwd=PROJECT_ROOT,
 	)
@@ -105,13 +130,18 @@ def main() -> None:
 	write_pipeline_summary("running", completed_steps)
 
 	try:
-		for name, script_path in PIPELINE:
-			run_step(name, script_path)
+		for step in PIPELINE:
+			name, script_path, args = unpack_step(step)
+			run_step(name, script_path, args=args)
 			completed_steps.append(name)
 			write_pipeline_summary("running", completed_steps)
 	except Exception:
 		failed_step = next(
-			(name for name, _ in PIPELINE if name not in completed_steps),
+			(
+				unpack_step(step)[0]
+				for step in PIPELINE
+				if unpack_step(step)[0] not in completed_steps
+			),
 			"unknown",
 		)
 		write_pipeline_summary("failed", completed_steps, failed_step=failed_step)
