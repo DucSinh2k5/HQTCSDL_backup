@@ -39,6 +39,8 @@ WALK_FORWARD_BACKTEST_PATH = PROJECT_ROOT / "reports" / "walk_forward_backtest.c
 WALK_FORWARD_BACKTEST_METRICS_PATH = PROJECT_ROOT / "reports" / "walk_forward_backtest_metrics.json"
 
 HORIZON = 5
+TARGET_TYPE = "future_return"
+RETURN_CALIBRATION_MIN_ABS_SIGNAL = 0.001
 
 TRAIN_RATIO = 0.7
 VALIDATION_RATIO = 0.15
@@ -88,7 +90,7 @@ XGB_PARAMS = {
     "reg_alpha": 0.1,
     "reg_lambda": 1.0,
     "objective": "reg:squarederror",
-    "eval_metric": "rmse",
+    "eval_metric": "mae",
     "random_state": 42,
     "n_jobs": -1
 }
