@@ -21,6 +21,9 @@ models/model1/data/raw/features_all.csv
 data/clean/features_all.csv
 reports/walk_forward_predictions.csv
 models/model1/reports/walk_forward_predictions.csv
+models/model1/reports/streamlit_predictions.csv
+models/model1/reports/latest_streamlit_prediction.json
+models/model1/reports/marts/
 # ==========================================
 # CHẶN TOÀN BỘ FILE OUTPUT LỚN CỦA MÔ HÌNH
 # ==========================================
