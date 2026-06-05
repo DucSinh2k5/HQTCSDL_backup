@@ -3,7 +3,7 @@ import numpy as np
 from .config import REPORT_DIR
 from .utils import save_json
 
-
+#Mô phỏng chiến lược chọn Top N cổ phiếu có dự báo tăng tốt nhất mỗi ngày rồi đánh giá kết quả thực tế.
 def run_backtest(prediction_df, top_n=10):
     df = prediction_df.copy()
 
@@ -15,9 +15,9 @@ def run_backtest(prediction_df, top_n=10):
             ascending=False
         ).head(top_n)
 
-        avg_actual_return = selected["actual_future_return_5d"].mean()
-        avg_predicted_return = selected["predicted_future_return_5d"].mean()
-        win_rate = (selected["actual_future_return_5d"] > 0).mean()
+        avg_predicted_return = selected["predicted_future_return_5d"].mean() #Lợi nhuận trung bình dự báo của Top N cổ phiếu
+        avg_actual_return = selected["actual_future_return_5d"].mean()       #Lợi nhuận thực tế trung bình của Top N cổ phiếu được chọn
+        win_rate = (selected["actual_future_return_5d"] > 0).mean()          #Tỷ lệ cổ phiếu lời
 
         backtest_rows.append({
             "trading_date": date,
@@ -29,9 +29,11 @@ def run_backtest(prediction_df, top_n=10):
 
     import pandas as pd
     backtest_df = pd.DataFrame(backtest_rows)
+
+    #Lợi nhuận lũy kế của chiến lược.
     backtest_df["cumulative_return"] = (
         1 + backtest_df["avg_actual_return"]
-    ).cumprod() - 1
+    ).cumprod() - 1 
 
     backtest_df.to_csv(
         REPORT_DIR / "backtest.csv",
@@ -44,7 +46,26 @@ def run_backtest(prediction_df, top_n=10):
 
     return backtest_df, metrics
 
+# backtest_df có các cột:
+# | Cột                  | Ý nghĩa                                |
+# | -------------------- | -------------------------------------- |
+# | trading_date         | Ngày giao dịch                         |
+# | top_n                | Số cổ phiếu được chọn                  |
+# | avg_predicted_return | Lợi nhuận dự báo trung bình của Top N  |
+# | avg_actual_return    | Lợi nhuận thực tế trung bình của Top N |
+# | win_rate             | Tỷ lệ cổ phiếu lời trong Top N         |
+# | cumulative_return    | Lợi nhuận lũy kế của chiến lược        |
 
+# metrics có:
+# | Metric       | Ý nghĩa                     |
+# | ------------ | --------------------------- |
+# | avg_return   | Lợi nhuận trung bình mỗi kỳ |
+# | win_rate     | Tỷ lệ kỳ có lợi nhuận dương |
+# | max_drawdown | Mức sụt giảm lớn nhất       |
+# | sharpe_ratio | Hiệu quả lợi nhuận/rủi ro   |
+
+
+#Dùng để tổng kết toàn bộ backtest
 def calculate_backtest_metrics(backtest_df):
     returns = backtest_df["avg_actual_return"]
 
