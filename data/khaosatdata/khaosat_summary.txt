@@ -1,10 +1,10 @@
 ========================================================================
 Dataset overview
 ------------------------------------------------------------------------
-Source: F:\Documents\CODE\Python\cv_project\stock\HQTCSDL_stocks\data\dirty\Data_500_stocks_dirty.csv
-Reference symbols: F:\Documents\CODE\Python\cv_project\stock\HQTCSDL_stocks\data\clean\Data_500_stocks_2015-2026.csv
+Source: C:\Users\VuMinhPhuoc\Documents\backup\backup\HQTCSDL_model_1\HQTCSDL_stocks\data\dirty\Data_500_stocks_dirty.csv
+Reference symbols: C:\Users\VuMinhPhuoc\Documents\backup\backup\HQTCSDL_model_1\HQTCSDL_stocks\data\clean\Data_500_stocks_2015-2026.csv
 Valid symbol count: 495
-Rows: 734464
+Rows: 735638
 Columns: 7
 Column list: ['time', 'open', 'high', 'low', 'close', 'volume', 'symbol']
 Missing expected columns: []
@@ -23,15 +23,15 @@ Duplicate rows (symbol+time): 16687
 Time column
 ------------------------------------------------------------------------
 Invalid time values: 0
-Time range: 2015-09-28 07:00:00 -> 2026-05-28 07:00:00
+Time range: 2015-09-28 07:00:00 -> 2026-06-04 07:00:00
 Saved: invalid_time.csv
 ========================================================================
 Symbol column
 ------------------------------------------------------------------------
-Invalid symbol values: 5084
+Invalid symbol values: 5092
 Invalid format symbols: 3075
 Known dirty marker symbols: 4042
-Symbols outside reference: 5084
+Symbols outside reference: 5092
 Unique symbols: 501
 Saved: invalid_symbol.csv, symbol_counts.csv
 ========================================================================

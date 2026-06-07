@@ -1,20 +1,10 @@
 {
-  "status": "success",
-  "updated_at": "2026-06-04T19:42:40+07:00",
+  "status": "failed",
+  "updated_at": "2026-06-07T21:39:09+07:00",
   "completed_steps": [
     "merge_daily_csv_to_dirty",
     "survey_data",
-    "clean_data",
-    "load_prices",
-    "load_symbols",
-    "upload_features_all",
-    "train_model1",
-    "train_model2",
-    "train_model3",
-    "train_model4",
-    "upload_model4_outputs",
-    "train_model5",
-    "upload_model5_outputs"
+    "clean_data"
   ],
-  "failed_step": null
+  "failed_step": "load_prices"
 }
