@@ -1,7 +1,4 @@
-import pandas as pd
-
 from src.config import (
-    CLICKHOUSE_SOURCE_DATABASE,
     CLICKHOUSE_DATABASE,
     CLICKHOUSE_FEATURES_TABLE,
     CLICKHOUSE_HOST,
@@ -9,8 +6,6 @@ from src.config import (
     CLICKHOUSE_PORT,
     CLICKHOUSE_SECURE,
     CLICKHOUSE_USERNAME,
-    DATA_PATH,
-    DATA_SOURCE,
 )
 
 
@@ -18,17 +13,12 @@ def quote_identifier(identifier):
     return "`" + str(identifier).replace("`", "``") + "`"
 
 
-def load_data_from_csv(path):
-    df = pd.read_csv(path)
-    df.columns = df.columns.str.strip()
-    return df
-
-
 def load_data_from_clickhouse():
     if not CLICKHOUSE_HOST:
-        raise ValueError(
-            "CLICKHOUSE_HOST is required when MODEL3_DATA_SOURCE=clickhouse"
-        )
+        raise ValueError("CLICKHOUSE_HOST is required")
+
+    if not CLICKHOUSE_PASSWORD:
+        raise ValueError("CLICKHOUSE_PASSWORD is required")
 
     try:
         import clickhouse_connect
@@ -48,7 +38,7 @@ def load_data_from_clickhouse():
     )
 
     table_name = (
-        f"{quote_identifier(CLICKHOUSE_SOURCE_DATABASE)}."
+        f"{quote_identifier(CLICKHOUSE_DATABASE)}."
         f"{quote_identifier(CLICKHOUSE_FEATURES_TABLE)}"
     )
     query = f"SELECT * FROM {table_name} ORDER BY symbol, trading_date"
@@ -58,14 +48,8 @@ def load_data_from_clickhouse():
 
 
 def load_data(path=None):
-    if DATA_SOURCE == "clickhouse":
-        print(
-            "[model3] Loading data from ClickHouse table "
-            f"{CLICKHOUSE_SOURCE_DATABASE}.{CLICKHOUSE_FEATURES_TABLE}"
-        )
-        return load_data_from_clickhouse()
-
-    if DATA_SOURCE != "csv":
-        raise ValueError("MODEL3_DATA_SOURCE must be either 'csv' or 'clickhouse'")
-
-    return load_data_from_csv(path or DATA_PATH)
+    print(
+        "[model3] Loading data from ClickHouse table "
+        f"{CLICKHOUSE_DATABASE}.{CLICKHOUSE_FEATURES_TABLE}"
+    )
+    return load_data_from_clickhouse()

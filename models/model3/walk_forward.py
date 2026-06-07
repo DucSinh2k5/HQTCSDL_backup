@@ -1,10 +1,10 @@
 import json
 import os
-from pathlib import Path
 
 from src.backtest import save_backtest_metrics
 from src.config import (
     BACKTEST_MIN_CLOSE,
+    BACKTEST_MIN_BUY_SELL_MARGIN,
     BACKTEST_MIN_BUY_PROBABILITY,
     BACKTEST_MIN_VOLUME,
     BACKTEST_TOP_K,
@@ -33,7 +33,7 @@ from src.walk_forward import run_walk_forward_backtest
 
 
 def create_folders():
-    os.makedirs(Path(WALK_FORWARD_PREDICTION_PATH).parent, exist_ok=True)
+    os.makedirs("reports", exist_ok=True)
 
 
 def main():
@@ -69,6 +69,7 @@ def main():
                 "min_volume": BACKTEST_MIN_VOLUME,
                 "min_close": BACKTEST_MIN_CLOSE,
                 "min_buy_probability": BACKTEST_MIN_BUY_PROBABILITY,
+                "min_buy_sell_margin": BACKTEST_MIN_BUY_SELL_MARGIN,
                 "transaction_cost_rate": TRANSACTION_COST_RATE,
                 "slippage_rate": SLIPPAGE_RATE,
             },
