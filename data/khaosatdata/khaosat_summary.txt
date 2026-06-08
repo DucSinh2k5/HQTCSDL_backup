@@ -1,8 +1,8 @@
 ========================================================================
 Dataset overview
 ------------------------------------------------------------------------
-Source: C:\Users\VuMinhPhuoc\Documents\backup\backup\HQTCSDL_model_1\HQTCSDL_stocks\data\dirty\Data_500_stocks_dirty.csv
-Reference symbols: C:\Users\VuMinhPhuoc\Documents\backup\backup\HQTCSDL_model_1\HQTCSDL_stocks\data\clean\Data_500_stocks_2015-2026.csv
+Source: F:\Documents\CODE\Python\cv_project\stock\HQTCSDL_stocks\data\dirty\Data_500_stocks_dirty.csv
+Reference symbols: F:\Documents\CODE\Python\cv_project\stock\HQTCSDL_stocks\data\clean\Data_500_stocks_2015-2026.csv
 Valid symbol count: 495
 Rows: 735638
 Columns: 7

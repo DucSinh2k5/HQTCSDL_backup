@@ -1,7 +1,7 @@
 clean_summary
-input_path: C:\Users\VuMinhPhuoc\Documents\backup\backup\HQTCSDL_model_1\HQTCSDL_stocks\data\dirty\Data_500_stocks_dirty.csv
-reference_path: C:\Users\VuMinhPhuoc\Documents\backup\backup\HQTCSDL_model_1\HQTCSDL_stocks\data\clean\Data_500_stocks_2015-2026.csv
-output_path: C:\Users\VuMinhPhuoc\Documents\backup\backup\HQTCSDL_model_1\HQTCSDL_stocks\data\clean\Data_500_stocks_clean_ver2.csv
+input_path: F:\Documents\CODE\Python\cv_project\stock\HQTCSDL_stocks\data\dirty\Data_500_stocks_dirty.csv
+reference_path: F:\Documents\CODE\Python\cv_project\stock\HQTCSDL_stocks\data\clean\Data_500_stocks_2015-2026.csv
+output_path: F:\Documents\CODE\Python\cv_project\stock\HQTCSDL_stocks\data\clean\Data_500_stocks_clean_ver2.csv
 dirty_rows_in: 735638
 reference_rows: 721477
 reference_symbols: 495

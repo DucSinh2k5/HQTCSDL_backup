@@ -10,7 +10,7 @@ from pathlib import Path
 CLICKHOUSE_HOST = "cvzq3t560s.ap-southeast-1.aws.clickhouse.cloud"
 CLICKHOUSE_PORT = 8443
 CLICKHOUSE_USER = "default"
-CLICKHOUSE_PASSWORD = "8~0lxNgJPB65E"
+CLICKHOUSE_PASSWORD = "K5clN_57i9pu6"
 CLICKHOUSE_DATABASE = "stock"
 CLICKHOUSE_SECURE = True
 

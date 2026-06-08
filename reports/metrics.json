@@ -1,19 +1,50 @@
 {
-    "MAE": 0.7503149742410363,
-    "RMSE": 1.6440557879159825,
-    "MAPE": 3.689228416686099,
-    "R2": 0.9947636409850871,
-    "Return_MAE": 0.03669199125081046,
-    "Return_RMSE": 0.05294460804148519,
-    "Directional_Accuracy": 53.54832187626365,
-    "Baseline_MAE": 0.759932100013479,
-    "Baseline_RMSE": 1.6748545160558943,
-    "Baseline_MAPE": 3.7510974093282674,
-    "Baseline_Return_MAE": 0.03727879711242791,
-    "Baseline_Return_RMSE": 0.05456934785468284,
-    "Baseline_Directional_Accuracy": 57.31483353551692,
-    "Return_MAE_Improvement": 0.0005868058616174468,
-    "Return_RMSE_Improvement": 0.001624739813197655,
-    "Directional_Accuracy_Over_Baseline": -3.7665116592532684,
-    "Beats_Baseline_Return_MAE": true
+    "Accuracy": 56.3360985736739,
+    "Macro_Precision": 0.5078505506138996,
+    "Macro_Recall": 0.46157137232513423,
+    "Macro_F1": 0.46041155096399505,
+    "Adjusted_Accuracy": 52.70598519041495,
+    "Adjusted_Macro_Precision": 0.617302331567383,
+    "Adjusted_Macro_Recall": 0.35159041559475,
+    "Adjusted_Macro_F1": 0.26830024953270143,
+    "Adjusted_BUY_Precision": 67.67810026385224,
+    "Adjusted_SELL_Precision": 65.12086827824372,
+    "Adjusted_Confusion_Matrix": [
+        [
+            1320,
+            28092,
+            112
+        ],
+        [
+            371,
+            60875,
+            133
+        ],
+        [
+            336,
+            27225,
+            513
+        ]
+    ],
+    "Signal_Min_Action_Probability": 0.6,
+    "Signal_Min_Action_Margin": 0.0,
+    "Baseline_Accuracy": 51.588962572598064,
+    "Baseline_Label": "HOLD",
+    "Confusion_Matrix": [
+        [
+            10356,
+            16197,
+            2971
+        ],
+        [
+            6575,
+            50946,
+            3858
+        ],
+        [
+            5554,
+            16795,
+            5725
+        ]
+    ]
 }

@@ -6,3 +6,4 @@ joblib
 matplotlib
 lightgbm
 clickhouse-connect
+python-dotenv
