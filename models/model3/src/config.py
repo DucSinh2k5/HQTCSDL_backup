@@ -1,5 +1,14 @@
 
+from pathlib import Path
 import os
+
+from dotenv import load_dotenv
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+ENV_PATH = PROJECT_ROOT / ".env"
+
+load_dotenv(ENV_PATH)
 
 
 CLICKHOUSE_HOST = os.getenv(
