@@ -1,6 +1,5 @@
 
 from pathlib import Path
-from pathlib import Path
 import os
 
 from dotenv import load_dotenv
@@ -21,6 +20,9 @@ CLICKHOUSE_USERNAME = os.getenv("CLICKHOUSE_USERNAME", os.getenv("CLICKHOUSE_USE
 CLICKHOUSE_PASSWORD = os.getenv("CLICKHOUSE_PASSWORD", "")
 CLICKHOUSE_DATABASE = os.getenv("CLICKHOUSE_DATABASE", "stock")
 CLICKHOUSE_FEATURES_TABLE = os.getenv("MODEL3_CLICKHOUSE_FEATURES_TABLE", "features_all")
+MODEL3_CLICKHOUSE_START_DATE = os.getenv("MODEL3_CLICKHOUSE_START_DATE", "2021-01-01").strip()
+MODEL3_CLICKHOUSE_END_DATE = os.getenv("MODEL3_CLICKHOUSE_END_DATE", "").strip()
+MODEL3_CLICKHOUSE_LIMIT = int(os.getenv("MODEL3_CLICKHOUSE_LIMIT", "0") or "0")
 CLICKHOUSE_SECURE = os.getenv("CLICKHOUSE_SECURE", "true").strip().lower() in {
     "1",
     "true",
